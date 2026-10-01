@@ -29,7 +29,7 @@ export type LoginResponse = {
 };
 
 export const LEGACY_SESSION_STORAGE_KEY = "dashboard.session";
-export const REFRESH_TOKEN_STORAGE_KEY = "dashboard.refreshToken";
+export const REFRESH_TOKEN_STORAGE_KEY = "rhythmeta.refreshToken";
 
 function getSessionStorage(): Storage | null {
 	if (typeof globalThis === "undefined") {
@@ -91,26 +91,7 @@ export function readStoredRefreshToken(): string | null {
 		return sessionStoredToken;
 	}
 
-	const legacyRaw = localStorage?.getItem(LEGACY_SESSION_STORAGE_KEY);
-	if (!legacyRaw) {
-		return null;
-	}
-
-	try {
-		const parsed = JSON.parse(legacyRaw) as Partial<Session>;
-		const refreshToken = parsed.refreshToken?.trim() ?? "";
-		if (!refreshToken) {
-			localStorage?.removeItem(LEGACY_SESSION_STORAGE_KEY);
-			return null;
-		}
-
-		localStorage?.setItem(REFRESH_TOKEN_STORAGE_KEY, refreshToken);
-		localStorage?.removeItem(LEGACY_SESSION_STORAGE_KEY);
-		return refreshToken;
-	} catch {
-		localStorage?.removeItem(LEGACY_SESSION_STORAGE_KEY);
-		return null;
-	}
+	return null;
 }
 
 export function persistRefreshToken(refreshToken: string) {

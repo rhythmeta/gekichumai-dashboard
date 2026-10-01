@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rhythmeta-dashboard",
+  "account_id": "10dabe832f43634059930effbc08f01e",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "dash.rhythmeta.org",
+      "custom_domain": true,
+      "zone_id": "3842c59d03b6d2d937b84f679b3bdb8b",
+    },
+  ],
+  "preview_urls": false,
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "single-page-application",
+  },
+  "observability": { "enabled": false },
+  "env": { "staging": { "name": "rhythmeta-dashboard-staging", "routes": [] } },
+}

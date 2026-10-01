@@ -5,7 +5,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PASSWORD_COMPLEXITY_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/u;
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]+$/u;
 
-export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").trim().replace(/\/+$/u, "");
+export const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://api.rhythmeta.org").trim().replace(/\/+$/u, "");
 export const STATIC_ASSETS_URL = (process.env.NEXT_PUBLIC_STATIC_ASSETS_URL ?? "").trim().replace(/\/+$/u, "");
 export const LXNS_OAUTH_CLIENT_ID = (process.env.NEXT_PUBLIC_LXNS_CLIENT_ID ?? "").trim();
 export const COVER_BASE_URL = `${STATIC_ASSETS_URL}/cdn-cgi/image/f=auto/covers`;

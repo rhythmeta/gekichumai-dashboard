@@ -77,11 +77,11 @@ async function refreshSession(backendUrl: string, refreshToken: string): Promise
 	const promise = (async () => {
 		let refreshed: Response;
 		try {
-			refreshed = await fetch(`${backendUrl}/v1/auth/refresh`, {
+			refreshed = await fetch(`${backendUrl}/auth/v1/refresh`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
-					"X-Maimaid-Client": "web",
+					"X-Rhythmeta-Client": "web",
 				},
 				body: JSON.stringify({ refreshToken: normalizedToken }),
 			});
@@ -126,7 +126,7 @@ export async function requestJson<T>(
 	const endpoint = `${backendUrl}/${path.replace(/^\/+/, "")}`;
 	const headers = new Headers({
 		"Content-Type": "application/json",
-		"X-Maimaid-Client": "web",
+		"X-Rhythmeta-Client": "web",
 	});
 
 	const accessToken = options?.accessToken ?? session?.accessToken;

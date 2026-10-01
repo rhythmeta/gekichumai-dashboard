@@ -8,65 +8,77 @@ const projectRoot = join(scriptsDirectory, "..");
 const outputPath = join(projectRoot, "public", "_headers");
 
 function resolveBackendOrigin() {
-	const raw = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8787").trim();
-	if (!raw) {
-		return null;
-	}
+  const raw = (
+    process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://api.rhythmeta.org"
+  ).trim();
+  if (!raw) {
+    return null;
+  }
 
-	try {
-		return new URL(raw).origin;
-	} catch {
-		return null;
-	}
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
 }
 
 const backendOrigin = resolveBackendOrigin();
 const staticAssetsOrigin = (() => {
-	try {
-		return new URL(process.env.NEXT_PUBLIC_STATIC_ASSETS_URL ?? "").origin;
-	} catch {
-		return null;
-	}
+  try {
+    return new URL(process.env.NEXT_PUBLIC_STATIC_ASSETS_URL ?? "").origin;
+  } catch {
+    return null;
+  }
 })();
 const connectSources = ["'self'"];
 if (backendOrigin) {
-	connectSources.push(backendOrigin);
+  connectSources.push(backendOrigin);
 }
 if (staticAssetsOrigin) {
-	connectSources.push(staticAssetsOrigin);
+  connectSources.push(staticAssetsOrigin);
 }
-connectSources.push("https://assets.rhythmeta.org");
+connectSources.push(
+  "https://assets.rhythmeta.org",
+  "https://maimaid-assets.rhythmeta.org",
+  "https://chunithmd-assets.rhythmeta.org",
+);
 
-// Profile avatars are streamed by the backend from R2 via
-// GET /v1/profiles/:profileId/avatar, so the backend origin must be an
-// allowed image source too, not just a connect-src.
-const imageSources = ["'self'", "data:", "https://dp4p6x0xfi5o9.cloudfront.net", "https://assets2.lxns.net"];
+const imageSources = [
+  "'self'",
+  "data:",
+  "https://dp4p6x0xfi5o9.cloudfront.net",
+  "https://assets2.lxns.net",
+];
 if (backendOrigin) {
-	imageSources.push(backendOrigin);
+  imageSources.push(backendOrigin);
 }
 if (staticAssetsOrigin) {
-	imageSources.push(staticAssetsOrigin);
+  imageSources.push(staticAssetsOrigin);
 }
-imageSources.push("https://assets.rhythmeta.org");
+imageSources.push(
+  "https://assets.rhythmeta.org",
+  "https://maimaid-assets.rhythmeta.org",
+  "https://chunithmd-assets.rhythmeta.org",
+);
 
 const contentSecurityPolicy = [
-	"default-src 'self'",
-	"base-uri 'self'",
-	"frame-ancestors 'none'",
-	"object-src 'none'",
-	"form-action 'self'",
-	`connect-src ${connectSources.join(" ")}`,
-	`img-src ${imageSources.join(" ")}`,
-	"font-src 'self' data:",
-	"script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
-	"style-src 'self' 'unsafe-inline'",
+  "default-src 'self'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "form-action 'self'",
+  `connect-src ${connectSources.join(" ")}`,
+  `img-src ${imageSources.join(" ")}`,
+  "font-src 'self' data:",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
 ].join("; ");
 
 const headers = `/*
   Content-Security-Policy: ${contentSecurityPolicy}
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
+  Referrer-Policy: no-referrer
   Permissions-Policy: camera=(), microphone=(), geolocation=(), fullscreen=(self)
 `;
 

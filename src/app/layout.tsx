@@ -8,8 +8,8 @@ import "./globals.css";
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-sans", weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
-	title: "maimaid Dashboard",
-	description: "maimaid unified management dashboard",
+	title: "Rhythmeta",
+	description: "Rhythmeta account, community aliases and cloud backups",
 };
 
 type RootLayoutProps = {

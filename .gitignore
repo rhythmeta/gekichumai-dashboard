@@ -5,3 +5,7 @@ out/
 .wrangler/
 public/song-catalog.json
 .env*.local
+
+.playwright-cli/
+output/
+*.tsbuildinfo

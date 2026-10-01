@@ -175,7 +175,7 @@ export function AuthScreen(props: AuthScreenProps) {
 						className="hidden size-16 drop-shadow-lg dark:block"
 					/>
 					<div className="text-center">
-						<p className="text-2xl font-bold tracking-tight">maimaid</p>
+						<p className="text-2xl font-bold tracking-tight">Rhythmeta</p>
 						<p className="text-sm text-muted-foreground">Dashboard</p>
 					</div>
 				</div>
