@@ -16,3 +16,9 @@ Configuration: `NEXT_PUBLIC_BACKEND_URL` defaults to `https://api.rhythmeta.org`
 App login requires a registered client ID, exact callback URI, random state and an S256 PKCE challenge. It returns a one-use authorization code to the app. Public backup links use no-referrer handling.
 
 Deploy with `pnpm deploy` or the manually dispatched workflow. Set `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` repository or organization secrets. The static Worker is `rhythmeta-dashboard`; configure its custom domain in `wrangler.jsonc`. Client-side CORS/CSP and the backend passkey origin must agree with the deployed domain.
+
+## Collection snapshot links
+
+`https://dash.rhythmeta.org/collection/MMD2.…` opens a public maimaid collection preview without signing in. The browser decodes the protobuf + raw-DEFLATE snapshot locally and uses the maimaid community index for song labels and covers. UUID/cloud collection lookup and MMD1 are unsupported. The Open in maimaid button forwards the same snapshot through `maimaid://collection/…`.
+
+Keep Workers Static Assets `not_found_handling: single-page-application`: dynamic collection paths use the exported root shell and are selected client-side before account initialization. Deploy this dashboard alongside clients that generate the new domain. Run parser regressions with `node --test tests/song-collection-codec.test.mjs`.
