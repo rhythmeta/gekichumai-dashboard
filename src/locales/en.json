@@ -62,6 +62,7 @@
     "flowLoginAppSuccess": "Logged in and returned to the App.",
     "flowSessionExpired": "Session expired. Please log in again.",
     "flowInvalidEmail": "Please enter a valid email.",
+    "flowUnknownEmailTld": "Unknown email domain ending. Check the spelling after the last dot.",
     "flowMissingEmailPass": "Please enter email and password.",
     "flowMfaInitFailed": "Failed to initialize MFA challenge. Please try again.",
     "flowLoginSuccess": "Login successful.",
@@ -383,7 +384,7 @@
   },
   "collection": {
     "sharedCollection": "Shared collection",
-    "openInApp": "Open in maimaid",
+    "openInApp": "Open in {{app}}",
     "chartCount": "{{count}} charts",
     "untitled": "Untitled collection",
     "empty": "This collection is empty",
@@ -403,8 +404,8 @@
     "downloadIOS": "Get maimaid for iPhone or iPad",
     "downloadAndroid": "Get maimaid for Android",
     "downloadDevice": "Get maimaid on your device",
-    "downloadDescription": "Install maimaid, then return to this page and open the collection again.",
-    "download": "Download maimaid",
+    "downloadDescription": "Install {{app}}, then return to this page and open the collection again.",
+    "download": "Download {{app}}",
     "close": "Close"
   },
   "aliases": {

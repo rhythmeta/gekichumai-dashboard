@@ -9,3 +9,4 @@ public/song-catalog.json
 .playwright-cli/
 output/
 *.tsbuildinfo
+.DS_Store

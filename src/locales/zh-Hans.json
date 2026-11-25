@@ -62,6 +62,7 @@
     "flowLoginAppSuccess": "已登录并返回 App。",
     "flowSessionExpired": "当前网页登录态失效，请重新登录。",
     "flowInvalidEmail": "请输入有效邮箱。",
+    "flowUnknownEmailTld": "邮箱的顶级域名无效，请检查最后一个点后面的拼写。",
     "flowMissingEmailPass": "请输入邮箱和密码。",
     "flowMfaInitFailed": "MFA challenge 初始化失败，请重试。",
     "flowLoginSuccess": "登录成功。",
@@ -383,7 +384,7 @@
   },
   "collection": {
     "sharedCollection": "分享收藏夹",
-    "openInApp": "在 maimaid 中打开",
+    "openInApp": "在 {{app}} 中打开",
     "chartCount": "{{count}} 个谱面",
     "untitled": "未命名收藏夹",
     "empty": "这个收藏夹是空的",
@@ -403,8 +404,8 @@
     "downloadIOS": "下载 iPhone 或 iPad 版 maimaid",
     "downloadAndroid": "下载 Android 版 maimaid",
     "downloadDevice": "在设备上下载 maimaid",
-    "downloadDescription": "安装 maimaid 后返回此页面，再次打开收藏夹。",
-    "download": "下载 maimaid",
+    "downloadDescription": "安装 {{app}} 后返回此页面，再次打开收藏夹。",
+    "download": "下载 {{app}}",
     "close": "关闭"
   },
   "aliases": {

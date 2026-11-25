@@ -14,7 +14,7 @@ const clientPath = () => window.location.pathname;
 const serverPath = () => null;
 
 export default function DashboardPage() {
-  // Workers Static Assets serves this shell for /collection/<MMD2 code>.
+  // Workers Static Assets serves this shell for /collection/<MMD2 or CHMD1 code>.
   const pathname = useSyncExternalStore(
     subscribeToPath,
     clientPath,

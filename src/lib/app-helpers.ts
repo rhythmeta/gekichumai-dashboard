@@ -1,6 +1,9 @@
 import type { Alias, Sheet as SongSheet, Song, SongFilterSettings } from "@/components/songs/types";
 import type { CatalogVersionItem, Profile, SongFilterSnapshot, SongIdItem } from "@/lib/app-types";
+import isEmail from "validator/lib/isEmail.js";
+import iana from "./iana-tlds.json" with { type: "json" };
 
+const registeredTlds = new Set(iana.tlds);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
 const PASSWORD_COMPLEXITY_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9\s]).{8,}$/u;
 const USERNAME_PATTERN = /^[\p{L}\p{N}_.-]+$/u;
@@ -90,6 +93,23 @@ export function localizedStandardContains(text: string, query: string) {
 
 export function isValidEmailAddress(value: string) {
 	return EMAIL_PATTERN.test(value.trim());
+}
+
+export function getRegistrationEmailError(value: string) {
+	const email = value.trim();
+	if (!isValidEmailAddress(email) || !isEmail(email)) {
+		return "flowInvalidEmail";
+	}
+
+	const domain = email.slice(email.lastIndexOf("@") + 1);
+	try {
+		// URL converts internationalized domains to the ASCII form used by IANA.
+		const hostname = new URL(`https://${domain}`).hostname;
+		const tld = hostname.slice(hostname.lastIndexOf(".") + 1);
+		return registeredTlds.has(tld) ? null : "flowUnknownEmailTld";
+	} catch {
+		return "flowInvalidEmail";
+	}
 }
 
 export function isPasswordComplexEnough(value: string) {

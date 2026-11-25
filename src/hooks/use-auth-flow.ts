@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   BACKEND_URL,
+  getRegistrationEmailError,
   isPasswordComplexEnough,
   isValidEmailAddress,
   isValidUsername,
@@ -623,8 +624,9 @@ export function useAuthFlow(input: UseAuthFlowInput) {
     const normalizedEmail = registerEmail.trim().toLowerCase();
     const normalizedUsername = normalizeUsername(registerUsername);
     const password = registerPassword;
-    if (!isValidEmailAddress(normalizedEmail)) {
-      showToast(t("flowInvalidEmail"), "warning");
+    const emailError = getRegistrationEmailError(normalizedEmail);
+    if (emailError) {
+      showToast(t(emailError), "warning");
       return;
     }
     if (!isValidUsername(normalizedUsername)) {

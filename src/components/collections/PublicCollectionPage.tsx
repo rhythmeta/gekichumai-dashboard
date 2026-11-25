@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/empty";
 import {
   decodeCollectionSnapshot,
+  collectionGameFromSegment,
   type SharedSongCollection,
 } from "@/lib/song-collection-codec";
 
@@ -24,10 +25,11 @@ type CatalogSong = {
   artist: string;
   coverUrl?: string;
 };
-const downloadURL = "https://github.com/rhythmeta/maimaid/releases/latest";
 
 export function PublicCollectionPage({ segment }: { segment: string }) {
   const { t } = useTranslation("collection");
+  const game = collectionGameFromSegment(segment) ?? "maimaid";
+  const downloadURL = `https://github.com/rhythmeta/${game}/releases/latest`;
   const [collection, setCollection] = useState<SharedSongCollection | null>(
     null,
   );
@@ -42,8 +44,11 @@ export function PublicCollectionPage({ segment }: { segment: string }) {
         if (controller.signal.aborted) return;
         setCollection(payload);
         const origin = (
-          process.env.NEXT_PUBLIC_MAIMAID_STATIC_URL ??
-          "https://maimaid-assets.rhythmeta.org"
+          game === "chunithmd"
+            ? (process.env.NEXT_PUBLIC_CHUNITHMD_STATIC_URL ??
+              "https://chunithmd-assets.rhythmeta.org")
+            : (process.env.NEXT_PUBLIC_MAIMAID_STATIC_URL ??
+              "https://maimaid-assets.rhythmeta.org")
         ).replace(/\/+$/u, "");
         try {
           const response = await fetch(`${origin}/community-index.json`, {
@@ -61,7 +66,7 @@ export function PublicCollectionPage({ segment }: { segment: string }) {
         if (!controller.signal.aborted) setInvalid(true);
       });
     return () => controller.abort();
-  }, [segment]);
+  }, [segment, game]);
 
   const byId = useMemo(
     () => new Map(catalog.map((song) => [song.songIdentifier, song])),
@@ -91,23 +96,23 @@ export function PublicCollectionPage({ segment }: { segment: string }) {
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
           <div className="flex items-center gap-3">
             <Image
-              src="/app-icon.png"
+              src={game === "chunithmd" ? "/chunithmd-icon.png" : "/app-icon.png"}
               alt=""
               width={36}
               height={36}
               className="rounded-md"
             />
             <div>
-              <p className="font-semibold">maimaid</p>
+              <p className="font-semibold">{game}</p>
               <p className="text-xs text-muted-foreground">
                 {t("sharedCollection")}
               </p>
             </div>
           </div>
           <Button asChild>
-            <a href={`maimaid://collection/${segment}`}>
+            <a href={`${game}://collection/${segment}`}>
               <SmartphoneIcon data-icon="inline-start" />
-              {t("openInApp")}
+              {t("openInApp", { app: game })}
             </a>
           </Button>
         </div>
@@ -169,7 +174,11 @@ export function PublicCollectionPage({ segment }: { segment: string }) {
                     </p>
                   </div>
                   <DifficultyBadge
-                    chartType={entry.chartType.toUpperCase()}
+                    chartType={
+                      game === "maimaid"
+                        ? entry.chartType.toUpperCase()
+                        : undefined
+                    }
                     difficulty={entry.difficulty}
                     label={
                       entry.difficulty.toLowerCase() === "remaster"
@@ -186,11 +195,11 @@ export function PublicCollectionPage({ segment }: { segment: string }) {
           <Button variant="outline" asChild>
             <a href={downloadURL} target="_blank" rel="noreferrer">
               <DownloadIcon data-icon="inline-start" />
-              {t("download")}
+              {t("download", { app: game })}
             </a>
           </Button>
           <p className="text-sm text-muted-foreground">
-            {t("downloadDescription")}
+            {t("downloadDescription", { app: game })}
           </p>
         </footer>
       </main>

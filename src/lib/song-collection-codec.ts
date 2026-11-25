@@ -1,4 +1,16 @@
-const PREFIX = "MMD2.";
+const MAIMAID_PREFIX = "MMD2.";
+const CHUNITHMD_PREFIX = "CHMD1.";
+const MAX_CHUNITHMD_TEXT_LENGTH = 200_000;
+
+export type CollectionGame = "maimaid" | "chunithmd";
+
+export function collectionGameFromSegment(
+  segment: string,
+): CollectionGame | null {
+  if (segment.startsWith(MAIMAID_PREFIX)) return "maimaid";
+  if (segment.startsWith(CHUNITHMD_PREFIX)) return "chunithmd";
+  return null;
+}
 const MAX_TEXT_LENGTH = 2_000_000;
 const MAX_COMPRESSED_BYTES = 1_000_000;
 const MAX_RAW_BYTES = 1_000_000;
@@ -88,6 +100,7 @@ async function decompressRaw(compressed: Uint8Array): Promise<Uint8Array> {
 
 function validateCollection(
   collection: SharedSongCollection,
+  game: CollectionGame,
 ): SharedSongCollection {
   if (collection.name.length > 200 || collection.entries.length > MAX_ENTRIES) {
     throw new CollectionShareError("invalid");
@@ -106,28 +119,63 @@ function validateCollection(
     }
   }
 
+  if (game === "chunithmd") {
+    if (
+      !collection.name.trim() ||
+      collection.entries.some(
+        (entry) =>
+          !entry.songId.trim() ||
+          !entry.chartType.trim() ||
+          !entry.difficulty.trim(),
+      )
+    )
+      throw new CollectionShareError("invalid");
+    const seen = new Set<string>();
+    return {
+      name: collection.name.trim().slice(0, 40),
+      entries: collection.entries
+        .map((entry) => ({
+          songId: entry.songId,
+          chartType: entry.chartType.toLowerCase(),
+          difficulty: entry.difficulty.toLowerCase(),
+        }))
+        .filter((entry) => {
+          const key = `${entry.songId}:${entry.chartType}:${entry.difficulty}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        }),
+    };
+  }
   return collection;
 }
 
 export async function decodeCollectionSnapshot(
   segment: string,
 ): Promise<SharedSongCollection> {
-  if (!segment.startsWith(PREFIX) || segment.length > MAX_TEXT_LENGTH) {
+  const game = collectionGameFromSegment(segment);
+  const limit =
+    game === "chunithmd" ? MAX_CHUNITHMD_TEXT_LENGTH : MAX_TEXT_LENGTH;
+  if (!game || segment.length > limit) {
     throw new CollectionShareError("invalid");
   }
 
   try {
-    const compressed = decodeBase64URL(segment.slice(PREFIX.length));
+    const prefix = game === "chunithmd" ? CHUNITHMD_PREFIX : MAIMAID_PREFIX;
+    const compressed = decodeBase64URL(segment.slice(prefix.length));
     const raw = await decompressRaw(compressed);
     const message = decodeCollectionProtobuf(raw);
-    return validateCollection({
-      name: message.name,
-      entries: message.entries.map((entry) => ({
-        songId: entry.songId,
-        chartType: entry.chartType,
-        difficulty: entry.difficulty,
-      })),
-    });
+    return validateCollection(
+      {
+        name: message.name,
+        entries: message.entries.map((entry) => ({
+          songId: entry.songId,
+          chartType: entry.chartType,
+          difficulty: entry.difficulty,
+        })),
+      },
+      game,
+    );
   } catch (error) {
     if (error instanceof CollectionShareError) throw error;
     throw new CollectionShareError("invalid");

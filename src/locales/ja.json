@@ -62,6 +62,7 @@
     "flowLoginAppSuccess": "ログインしてAppに戻りました。",
     "flowSessionExpired": "セッションの有効期限が切れました。再度ログインしてください。",
     "flowInvalidEmail": "有効なメールアドレスを入力してください。",
+    "flowUnknownEmailTld": "メールアドレスのトップレベルドメインが無効です。最後のドット以降の綴りを確認してください。",
     "flowMissingEmailPass": "メールアドレスとパスワードを入力してください。",
     "flowMfaInitFailed": "MFAチャレンジの初期化に失敗しました。再試行してください。",
     "flowLoginSuccess": "ログインに成功しました。",
@@ -383,7 +384,7 @@
   },
   "collection": {
     "sharedCollection": "共有コレクション",
-    "openInApp": "maimaid で開く",
+    "openInApp": "{{app}} で開く",
     "chartCount": "{{count}} 譜面",
     "untitled": "名称未設定のコレクション",
     "empty": "このコレクションは空です",
@@ -403,8 +404,8 @@
     "downloadIOS": "iPhone または iPad 版 maimaid を入手",
     "downloadAndroid": "Android 版 maimaid を入手",
     "downloadDevice": "端末に maimaid をインストール",
-    "downloadDescription": "maimaid をインストールしてこのページに戻り、もう一度コレクションを開いてください。",
-    "download": "maimaid をダウンロード",
+    "downloadDescription": "{{app}} をインストールしてこのページに戻り、もう一度コレクションを開いてください。",
+    "download": "{{app}} をダウンロード",
     "close": "閉じる"
   },
   "aliases": {
