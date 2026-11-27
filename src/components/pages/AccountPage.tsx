@@ -53,6 +53,7 @@ export function AccountPage({
   return (
     <SettingsPage
       sessionUser={session.user}
+      request={request}
       mfaStatus={mfaStatus}
       mfaSetup={mfaSetup}
       mfaSetupCode={mfaSetupCode}

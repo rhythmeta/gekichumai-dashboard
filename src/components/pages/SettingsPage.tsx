@@ -35,7 +35,9 @@ import {
   SmartphoneIcon,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
+import type { RequestFn } from "@/App";
 import { useTranslation } from "react-i18next";
+import { OAuthAuthorizationsPage } from "./OAuthAuthorizationsPage";
 
 type MfaStatus = {
   mfaEnabled: boolean;
@@ -72,6 +74,7 @@ type SessionUser = {
 
 type SettingsPageProps = {
   sessionUser: SessionUser;
+  request: RequestFn;
   mfaStatus: MfaStatus | null;
   mfaSetup: MfaSetup | null;
   mfaSetupCode: string;
@@ -138,6 +141,7 @@ function sanitizeBackupCode(value: string) {
 
 export function SettingsPage({
   sessionUser,
+  request,
   mfaStatus,
   mfaSetup,
   mfaSetupCode,
@@ -288,6 +292,7 @@ export function SettingsPage({
         <TabsList variant="line" className="w-full justify-start">
           <TabsTrigger value="overview">{t("tabOverview")}</TabsTrigger>
           <TabsTrigger value="security">{t("tabSecurity")}</TabsTrigger>
+          <TabsTrigger value="oauthApps">{t("tabOauthApps")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="flex flex-col gap-4">
@@ -656,6 +661,10 @@ export function SettingsPage({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="oauthApps" className="flex flex-col gap-4">
+          <OAuthAuthorizationsPage request={request} />
         </TabsContent>
       </Tabs>
 

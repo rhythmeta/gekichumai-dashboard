@@ -10,7 +10,11 @@ import { AuthScreen } from "@/components/auth/AuthScreen";
 import { AccountPage } from "@/components/pages/AccountPage";
 import { CommunityPage } from "@/components/pages/CommunityPage";
 import { BackupsPage } from "@/components/pages/BackupsPage";
+import { DeveloperPage } from "@/components/pages/DeveloperPage";
 import { UsersPage } from "@/components/pages/UsersPage";
+import { OAuthConsentPage } from "@/components/oauth/OAuthConsentPage";
+import { OAuthDevicePage } from "@/components/oauth/OAuthDevicePage";
+import { useClientPathname } from "@/hooks/use-client-pathname";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
@@ -33,6 +37,11 @@ export type RequestFn = <T>(
 export type Game = "maimaid" | "chunithmd";
 
 export default function App() {
+  const pathname = useClientPathname();
+  const isConsentRoute =
+    pathname === "/oauth/authorize" || pathname === "/oauth/authorize/";
+  const isDeviceRoute =
+    pathname === "/oauth/device" || pathname === "/oauth/device/";
   const [session, setSession] = useState<Session | null>(null);
   const [initializing, setInitializing] = useState(true);
   const sessionRef = useRef(session);
@@ -109,6 +118,16 @@ export default function App() {
     (authFlow.isAppAuthFlow && authFlow.appAuthRequestedMode !== "login")
   )
     return <AuthScreen {...authFlow} />;
+  if (isConsentRoute) {
+    return (
+      <OAuthConsentPage request={request} session={session} onLogout={logout} />
+    );
+  }
+  if (isDeviceRoute) {
+    return (
+      <OAuthDevicePage request={request} session={session} onLogout={logout} />
+    );
+  }
   if (authFlow.isAppAuthFlow)
     return (
       <main className="mx-auto flex max-w-lg flex-col gap-6 p-8">
@@ -135,10 +154,11 @@ export default function App() {
         </Button>
       </header>
       <Tabs defaultValue="account" className="gap-6">
-        <TabsList>
+        <TabsList className="max-w-full overflow-x-auto">
           <TabsTrigger value="account">账号</TabsTrigger>
           <TabsTrigger value="aliases">社区别名</TabsTrigger>
           <TabsTrigger value="backups">云备份</TabsTrigger>
+          <TabsTrigger value="developer">开发者</TabsTrigger>
           {session.user.isAdmin && (
             <TabsTrigger value="users">用户管理</TabsTrigger>
           )}
@@ -155,6 +175,9 @@ export default function App() {
         </TabsContent>
         <TabsContent value="backups">
           <BackupsPage request={request} />
+        </TabsContent>
+        <TabsContent value="developer">
+          <DeveloperPage request={request} isAdmin={session.user.isAdmin} />
         </TabsContent>
         {session.user.isAdmin && (
           <TabsContent value="users">
