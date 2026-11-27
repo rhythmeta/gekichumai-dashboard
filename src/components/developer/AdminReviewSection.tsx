@@ -8,6 +8,7 @@ import {
 	ClockIcon,
 	HistoryIcon,
 	RefreshCwIcon,
+	RotateCcwIcon,
 	UserRoundIcon,
 	XIcon,
 } from "lucide-react";
@@ -31,16 +32,22 @@ import {
 	EmptyTitle,
 } from "@/components/ui/empty";
 import { HandleText } from "@/components/ui/handle-text";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TablePagination } from "@/components/ui/table-pagination";
 import { Textarea } from "@/components/ui/textarea";
 import {
+	OAUTH_REVIEW_HISTORY_PAGE_SIZE,
 	OAUTH_REVIEW_NOTE_MAX,
 	type AdminReviewApp,
 	type AdminReviewAppsResponse,
+	type AdminReviewHistoryResponse,
 	type OAuthReviewDecision,
+	type OAuthReviewStatusFilter,
 } from "@/lib/oauth-types";
 import { cn } from "@/lib/utils";
 import { AppMeta } from "./AppMeta";
 import { AppStatusBadge } from "./AppStatusBadge";
+import { ReReviewDialog } from "./ReReviewDialog";
 
 function SkeletonRow() {
 	return (
@@ -134,31 +141,143 @@ function PendingReviewCard({
 	);
 }
 
+function HistoryRow({
+	app,
+	onReReview,
+}: {
+	app: AdminReviewApp;
+	onReReview: () => void;
+}) {
+	const { t } = useTranslation("developer");
+	const reviewCount = app.reviews?.length ?? 0;
+	return (
+		<div className="flex flex-col gap-2.5 rounded-xl border p-3">
+			<div className="flex min-w-0 flex-wrap items-center gap-2.5">
+				<OAuthAppIcon
+					name={app.name}
+					iconDataUrl={app.iconDataUrl}
+					size="sm"
+				/>
+				<div className="min-w-0 flex-1">
+					<p className="truncate text-sm font-medium">{app.name}</p>
+					<p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+						<HandleText handle={app.developer.handle} />
+						{app.reviewedAt ? (
+							<span>
+								{t("reviewedAtLabel", {
+									time: new Date(app.reviewedAt).toLocaleString(),
+								})}
+							</span>
+						) : null}
+					</p>
+				</div>
+				<AppStatusBadge status={app.status} />
+			</div>
+
+			<div className="flex flex-wrap items-center gap-1.5">
+				{app.reviewedByHandle ? (
+					<Badge variant="outline">
+						{t("reviewedByLabel", { handle: app.reviewedByHandle })}
+					</Badge>
+				) : null}
+				{reviewCount > 0 ? (
+					<Badge variant="secondary">
+						{t("adminHistoryRecordCount", { amount: reviewCount })}
+					</Badge>
+				) : null}
+			</div>
+
+			{app.reviewNote ? (
+				<p className="rounded-lg bg-muted/60 px-2.5 py-2 text-xs whitespace-pre-line text-muted-foreground">
+					{app.reviewNote}
+				</p>
+			) : null}
+
+			<div className="flex justify-end">
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					onClick={onReReview}
+				>
+					<RotateCcwIcon data-icon="inline-start" />
+					{t("reReview")}
+				</Button>
+			</div>
+		</div>
+	);
+}
+
 export function AdminReviewSection({ request }: { request: RequestFn }) {
 	const { t } = useTranslation("developer");
 	const [pending, setPending] = useState<AdminReviewApp[] | null>(null);
-	const [history, setHistory] = useState<AdminReviewApp[] | null>(null);
+	const [pendingLoading, setPendingLoading] = useState(true);
 	const [notes, setNotes] = useState<Record<string, string>>({});
 	const [busyId, setBusyId] = useState<string | null>(null);
-	const [loading, setLoading] = useState(true);
 
-	const load = useCallback(async () => {
-		setLoading(true);
+	const [historyStatus, setHistoryStatus] =
+		useState<OAuthReviewStatusFilter>("all");
+	const [historyOffset, setHistoryOffset] = useState(0);
+	const [history, setHistory] = useState<AdminReviewHistoryResponse | null>(
+		null,
+	);
+	const [historyLoading, setHistoryLoading] = useState(true);
+	const [reReviewTarget, setReReviewTarget] = useState<AdminReviewApp | null>(
+		null,
+	);
+
+	const loadPending = useCallback(async () => {
+		setPendingLoading(true);
 		try {
-			const [pendingResult, historyResult] = await Promise.all([
-				request<AdminReviewAppsResponse>("auth/v1/oauth/reviews/pending"),
-				request<AdminReviewAppsResponse>("auth/v1/oauth/reviews/history"),
-			]);
-			setPending(pendingResult.apps);
-			setHistory(historyResult.apps);
+			const result = await request<AdminReviewAppsResponse>(
+				"auth/v1/oauth/reviews/pending",
+			);
+			setPending(result.apps);
 		} finally {
-			setLoading(false);
+			setPendingLoading(false);
 		}
 	}, [request]);
 
+	const loadHistory = useCallback(async () => {
+		setHistoryLoading(true);
+		try {
+			const query = new URLSearchParams({
+				status: historyStatus,
+				limit: String(OAUTH_REVIEW_HISTORY_PAGE_SIZE),
+				offset: String(historyOffset),
+			});
+			const result = await request<AdminReviewHistoryResponse>(
+				`auth/v1/oauth/reviews/history?${query.toString()}`,
+			);
+			// The last record of a page may disappear after a re-review; fall back
+			// to the previous page instead of showing an empty list.
+			if (
+				result.apps.length === 0 &&
+				result.total > 0 &&
+				historyOffset > 0
+			) {
+				setHistoryOffset(
+					Math.max(0, historyOffset - OAUTH_REVIEW_HISTORY_PAGE_SIZE),
+				);
+				return;
+			}
+			setHistory(result);
+		} finally {
+			setHistoryLoading(false);
+		}
+	}, [request, historyStatus, historyOffset]);
+
 	useEffect(() => {
-		void load().catch((error: Error) => toast.error(error.message));
-	}, [load]);
+		void loadPending().catch((error: Error) => toast.error(error.message));
+	}, [loadPending]);
+
+	useEffect(() => {
+		void loadHistory().catch((error: Error) => toast.error(error.message));
+	}, [loadHistory]);
+
+	const reloadAll = useCallback(async () => {
+		await Promise.all([loadPending(), loadHistory()]);
+	}, [loadPending, loadHistory]);
 
 	const decide = async (app: AdminReviewApp, decision: OAuthReviewDecision) => {
 		setBusyId(app.id);
@@ -174,13 +293,23 @@ export function AdminReviewSection({ request }: { request: RequestFn }) {
 				return next;
 			});
 			toast.success(t("reviewSubmitted"));
-			await load();
+			await reloadAll();
 		} catch (error) {
 			toast.error((error as Error).message);
 		} finally {
 			setBusyId(null);
 		}
 	};
+
+	const historyTotal = history?.total ?? 0;
+	const historyPageCount = Math.max(
+		1,
+		Math.ceil(historyTotal / OAUTH_REVIEW_HISTORY_PAGE_SIZE),
+	);
+	const historyPage =
+		Math.floor(historyOffset / OAUTH_REVIEW_HISTORY_PAGE_SIZE) + 1;
+	const historyFilterEmpty =
+		historyStatus === "all" ? t("adminHistoryEmpty") : t("adminHistoryNoMatch");
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -193,12 +322,16 @@ export function AdminReviewSection({ request }: { request: RequestFn }) {
 							type="button"
 							size="sm"
 							variant="outline"
-							disabled={loading}
-							onClick={() => void load().catch((error: Error) => toast.error(error.message))}
+							disabled={pendingLoading}
+							onClick={() =>
+								void reloadAll().catch((error: Error) =>
+									toast.error(error.message),
+								)
+							}
 						>
 							<RefreshCwIcon
 								data-icon="inline-start"
-								className={cn(loading && "animate-spin")}
+								className={cn(pendingLoading && "animate-spin")}
 							/>
 							{t("refresh")}
 						</Button>
@@ -243,61 +376,117 @@ export function AdminReviewSection({ request }: { request: RequestFn }) {
 				<CardHeader>
 					<CardTitle>{t("adminHistoryTitle")}</CardTitle>
 					<CardDescription>{t("adminHistoryDesc")}</CardDescription>
+					<CardAction>
+						<div className="flex flex-wrap items-center justify-end gap-2">
+							<Select
+								value={historyStatus}
+								onValueChange={(value) => {
+									setHistoryStatus(value as OAuthReviewStatusFilter);
+									setHistoryOffset(0);
+								}}
+							>
+								<SelectTrigger
+									size="sm"
+									className="w-28"
+									aria-label={t("adminHistoryFilterLabel")}
+								>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="all">
+										{t("adminHistoryFilterAll")}
+									</SelectItem>
+									<SelectItem value="approved">
+										{t("adminHistoryFilterApproved")}
+									</SelectItem>
+									<SelectItem value="rejected">
+										{t("adminHistoryFilterRejected")}
+									</SelectItem>
+								</SelectContent>
+							</Select>
+							<Button
+								type="button"
+								size="sm"
+								variant="outline"
+								disabled={historyLoading}
+								onClick={() =>
+									void loadHistory().catch((error: Error) =>
+										toast.error(error.message),
+									)
+								}
+							>
+								<RefreshCwIcon
+									data-icon="inline-start"
+									className={cn(historyLoading && "animate-spin")}
+								/>
+								{t("refresh")}
+							</Button>
+						</div>
+					</CardAction>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-3">
 					{history === null ? (
-						<SkeletonRow />
-					) : history.length === 0 ? (
+						<>
+							<SkeletonRow />
+							<SkeletonRow />
+						</>
+					) : history.apps.length === 0 ? (
 						<Empty>
 							<EmptyHeader>
 								<EmptyMedia variant="icon">
 									<HistoryIcon />
 								</EmptyMedia>
-								<EmptyTitle>{t("adminHistoryEmpty")}</EmptyTitle>
+								<EmptyTitle>{historyFilterEmpty}</EmptyTitle>
+								<EmptyDescription>
+									{t("adminHistoryEmptyDesc")}
+								</EmptyDescription>
 							</EmptyHeader>
 						</Empty>
 					) : (
-						history.map((app) => (
-							<div
-								key={app.id}
-								className="flex flex-col gap-2 rounded-xl border p-3"
-							>
-								<div className="flex min-w-0 items-center gap-2.5">
-									<OAuthAppIcon
-										name={app.name}
-										iconDataUrl={app.iconDataUrl}
-										size="sm"
-									/>
-									<div className="min-w-0 flex-1">
-										<p className="truncate text-sm font-medium">{app.name}</p>
-										<p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-											<HandleText handle={app.developer.handle} />
-											{app.reviewedAt ? (
-												<span>
-													{t("reviewedAtLabel", {
-														time: new Date(app.reviewedAt).toLocaleString(),
-													})}
-												</span>
-											) : null}
-										</p>
-									</div>
-									<AppStatusBadge status={app.status} />
-								</div>
-								{app.reviewedByHandle ? (
-									<Badge variant="outline" className="w-fit">
-										{t("reviewedByLabel", { handle: app.reviewedByHandle })}
-									</Badge>
-								) : null}
-								{app.reviewNote ? (
-									<p className="rounded-lg bg-muted/60 px-2.5 py-2 text-xs whitespace-pre-line text-muted-foreground">
-										{app.reviewNote}
-									</p>
-								) : null}
+						<>
+							<div className="flex flex-wrap items-center justify-between gap-2">
+								<p className="text-xs text-muted-foreground">
+									{t("adminHistoryTotal", { total: historyTotal })}
+								</p>
 							</div>
-						))
+							{history.apps.map((app) => (
+								<HistoryRow
+									key={app.id}
+									app={app}
+									onReReview={() => setReReviewTarget(app)}
+								/>
+							))}
+							{historyTotal > OAUTH_REVIEW_HISTORY_PAGE_SIZE ? (
+								<TablePagination
+									page={historyPage}
+									pageCount={historyPageCount}
+									pageSize={OAUTH_REVIEW_HISTORY_PAGE_SIZE}
+									pageSizeOptions={[OAUTH_REVIEW_HISTORY_PAGE_SIZE]}
+									onPageChange={(page) =>
+										setHistoryOffset(
+											(page - 1) * OAUTH_REVIEW_HISTORY_PAGE_SIZE,
+										)
+									}
+									onPageSizeChange={() => {}}
+								/>
+							) : null}
+						</>
 					)}
 				</CardContent>
 			</Card>
+
+			{reReviewTarget ? (
+				<ReReviewDialog
+					key={reReviewTarget.id}
+					app={reReviewTarget}
+					open
+					onOpenChange={(open) => {
+						if (!open) setReReviewTarget(null);
+					}}
+					request={request}
+					onReviewed={reloadAll}
+				/>
+			) : null}
 		</div>
 	);
 }

@@ -217,10 +217,19 @@ export type OAuthDeveloper = {
 	email: string;
 };
 
+export type AdminReviewRecord = {
+	decision: "approved" | "rejected";
+	note: string | null;
+	reviewerHandle: string | null;
+	createdAt: string;
+};
+
 /** Owner shape minus the secret, plus reviewer/developer metadata. */
 export type AdminReviewApp = Omit<OAuthApp, "clientSecret"> & {
 	developer: OAuthDeveloper;
 	reviewedByHandle?: string | null;
+	/** Latest review trail (newest first, up to 10 entries). */
+	reviews?: AdminReviewRecord[];
 };
 
 export type OAuthReviewDecision = "approve" | "reject";
@@ -374,6 +383,16 @@ export type LatestBackupProfiles = {
 
 export type OAuthAppsResponse = { apps: OAuthApp[] };
 export type AdminReviewAppsResponse = { apps: AdminReviewApp[] };
+
+export type OAuthReviewStatusFilter = "all" | "approved" | "rejected";
+
+export type AdminReviewHistoryResponse = {
+	apps: AdminReviewApp[];
+	total: number;
+};
+
+/** Page size used for the admin review history (contract default). */
+export const OAUTH_REVIEW_HISTORY_PAGE_SIZE = 20;
 export type OAuthAuthorizationsResponse = {
 	authorizations: OAuthAuthorization[];
 };
