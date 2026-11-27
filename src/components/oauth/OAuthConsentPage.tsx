@@ -59,6 +59,7 @@ type ConsentParams = {
 	responseType: string;
 	scopes: string[];
 	state: string | null;
+	nonce: string | null;
 	codeChallenge: string;
 	codeChallengeMethod: string;
 };
@@ -80,6 +81,7 @@ function readConsentParams(search: string): ConsentParams {
 		responseType: read("response_type"),
 		scopes: read("scope").split(/[\s,]+/u).filter(Boolean),
 		state: read("state") || null,
+		nonce: read("nonce") || null,
 		codeChallenge: read("code_challenge"),
 		codeChallengeMethod: read("code_challenge_method") || "S256",
 	};
@@ -162,6 +164,7 @@ export function OAuthConsentPage({
 			code_challenge_method: params.codeChallengeMethod,
 		});
 		if (params.state) search.set("state", params.state);
+		if (params.nonce) search.set("nonce", params.nonce);
 		void request<AuthorizeInfo>(`oauth/v1/authorize?${search.toString()}`, {
 			auth: false,
 		})
@@ -197,6 +200,7 @@ export function OAuthConsentPage({
 				redirectUri: view.info.redirectUri,
 				scopes: view.info.scopes,
 				state: view.info.state,
+				nonce: view.info.nonce ?? params.nonce,
 				codeChallenge: params.codeChallenge,
 				codeChallengeMethod: "S256",
 				decision,

@@ -250,6 +250,8 @@ export type LatestBackupProfileSummary = {
 	name: string;
 	server?: string | null;
 	active: boolean;
+	/** LXNS profile avatar URL from the backup (own data; may be null). */
+	avatarUrl?: string | null;
 	createdAt?: string | null;
 	playerRating?: number | null;
 	plate?: string | null;

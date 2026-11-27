@@ -27,13 +27,42 @@ type AvatarSelection = {
 	backupId: string;
 	profileId: string;
 	hasAvatar: boolean;
+	avatarUrl: string | null;
 	cachedAt: number;
 };
 
 type CachedImage = {
 	avatarDataUrl: string | null;
+	avatarUrl: string | null;
 	cachedAt: number;
 };
+
+export type ProfileAvatarResult = {
+	avatarDataUrl: string | null;
+	avatarUrl: string | null;
+};
+
+const EMPTY_AVATAR: ProfileAvatarResult = {
+	avatarDataUrl: null,
+	avatarUrl: null,
+};
+
+/**
+ * Only absolute http(s) URLs are rendered as an image source. LXNS avatar links
+ * are the intended case; any other scheme is ignored.
+ */
+function sanitizeAvatarUrl(value: unknown): string | null {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	if (!trimmed) return null;
+	try {
+		const url = new URL(trimmed);
+		if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+		return url.href;
+	} catch {
+		return null;
+	}
+}
 
 let discoveryInFlight: Promise<Candidate[]> | null = null;
 const avatarInFlight = new Map<string, Promise<string | null>>();
@@ -93,14 +122,16 @@ function readSelection(): AvatarSelection | null {
 	if (!cached || !cached.game || !cached.backupId || !cached.profileId) {
 		return null;
 	}
-	return cached;
+	return { ...cached, avatarUrl: sanitizeAvatarUrl(cached.avatarUrl) };
 }
 
 function readImage(selection: AvatarSelection): CachedImage | null {
-	return readJson<CachedImage>(imageCacheKey(selection));
+	const cached = readJson<CachedImage>(imageCacheKey(selection));
+	if (!cached) return null;
+	return { ...cached, avatarUrl: sanitizeAvatarUrl(cached.avatarUrl) };
 }
 
-function readCachedAvatar(): string | null | undefined {
+function readCachedAvatar(): ProfileAvatarResult | undefined {
 	const selection = readSelection();
 	if (!selection || !isFresh(selection.cachedAt)) {
 		return undefined;
@@ -109,7 +140,10 @@ function readCachedAvatar(): string | null | undefined {
 	if (!image || !isFresh(image.cachedAt)) {
 		return undefined;
 	}
-	return image.avatarDataUrl;
+	return {
+		avatarDataUrl: image.avatarDataUrl,
+		avatarUrl: image.avatarUrl ?? selection.avatarUrl,
+	};
 }
 
 function commitTime(candidate: Candidate): number {
@@ -135,6 +169,7 @@ function chooseSelection(candidates: Candidate[]): AvatarSelection | null {
 		backupId: chosen.backupId,
 		profileId: profile.id,
 		hasAvatar: profile.hasAvatar !== false,
+		avatarUrl: sanitizeAvatarUrl(profile.avatarUrl),
 		cachedAt: Date.now(),
 	};
 }
@@ -215,36 +250,51 @@ async function fetchAvatarDataUrl(
 	return pending;
 }
 
-async function resolveProfileAvatar(request: RequestFn): Promise<string | null> {
+async function resolveProfileAvatar(
+	request: RequestFn,
+): Promise<ProfileAvatarResult> {
 	const selection = await resolveSelection(request);
-	if (!selection) return null;
+	if (!selection) return EMPTY_AVATAR;
 	const cachedImage = readImage(selection);
 	if (cachedImage && isFresh(cachedImage.cachedAt)) {
-		return cachedImage.avatarDataUrl;
+		return {
+			avatarDataUrl: cachedImage.avatarDataUrl,
+			avatarUrl: cachedImage.avatarUrl ?? selection.avatarUrl,
+		};
 	}
+	// Raw avatar bytes win; the LXNS avatar URL is only a fallback source.
 	const avatarDataUrl = selection.hasAvatar
 		? await fetchAvatarDataUrl(request, selection)
 		: null;
-	const cacheEntry: CachedImage = { avatarDataUrl, cachedAt: Date.now() };
+	const result: ProfileAvatarResult = {
+		avatarDataUrl,
+		avatarUrl: selection.avatarUrl,
+	};
+	const cacheEntry: CachedImage = {
+		avatarDataUrl: result.avatarDataUrl,
+		avatarUrl: result.avatarUrl,
+		cachedAt: Date.now(),
+	};
 	writeJson(imageCacheKey(selection), cacheEntry);
-	return avatarDataUrl;
+	return result;
 }
 
 /**
  * Avatar of the profile selected in the newest backup (`active` profiles win),
  * cached for 10 minutes in sessionStorage because the profile endpoints share a
- * 60/hour rate limit. Failures are silent and fall back to the account initial.
+ * 60/hour rate limit. Prefers the raw avatar endpoint and falls back to the LXNS
+ * `avatarUrl`; failures are silent and fall back to the account initial.
  */
-export function useProfileAvatar(request: RequestFn): string | null {
-	const [avatarDataUrl, setAvatarDataUrl] = useState<string | null>(
-		() => readCachedAvatar() ?? null,
+export function useProfileAvatar(request: RequestFn): ProfileAvatarResult {
+	const [avatar, setAvatar] = useState<ProfileAvatarResult>(
+		() => readCachedAvatar() ?? EMPTY_AVATAR,
 	);
 
 	useEffect(() => {
 		let cancelled = false;
 		void resolveProfileAvatar(request)
-			.then((url) => {
-				if (!cancelled) setAvatarDataUrl(url);
+			.then((result) => {
+				if (!cancelled) setAvatar(result);
 			})
 			.catch(() => {
 				// Silent: the account initial stays as the fallback.
@@ -254,6 +304,6 @@ export function useProfileAvatar(request: RequestFn): string | null {
 		};
 	}, [request]);
 
-	return avatarDataUrl;
+	return avatar;
 }
 

@@ -159,7 +159,9 @@ export function SettingsPage({
   onRegenerateBackupCodes,
 }: SettingsPageProps) {
   const { t } = useTranslation("settings");
-  const profileAvatarUrl = useProfileAvatar(request);
+  const profileAvatar = useProfileAvatar(request);
+  const profileAvatarSrc =
+    profileAvatar.avatarDataUrl ?? profileAvatar.avatarUrl;
   const [totpQrDataUrl, setTotpQrDataUrl] = useState("");
   const [registeringPasskey, setRegisteringPasskey] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -302,10 +304,11 @@ export function SettingsPage({
             <CardContent className="flex flex-col gap-5">
               <div className="flex flex-wrap items-center gap-3">
                 <Avatar className="size-12 rounded-xl">
-                  {profileAvatarUrl ? (
+                  {profileAvatarSrc ? (
                     <AvatarImage
-                      src={profileAvatarUrl}
+                      src={profileAvatarSrc}
                       alt=""
+                      referrerPolicy="no-referrer"
                       className="object-cover"
                     />
                   ) : null}

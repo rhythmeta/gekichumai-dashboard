@@ -270,6 +270,7 @@ export type AuthorizeInfo = {
 	redirectUri: string;
 	scopes: OAuthScope[];
 	state: string | null;
+	nonce: string | null;
 };
 
 export type AuthorizeDecision = "approve" | "deny";
@@ -279,6 +280,7 @@ export type AuthorizeDecisionInput = {
 	redirectUri: string;
 	scopes: OAuthScope[];
 	state: string | null;
+	nonce: string | null;
 	codeChallenge: string;
 	codeChallengeMethod: "S256";
 	decision: AuthorizeDecision;
