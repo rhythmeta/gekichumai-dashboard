@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isValidUsername, normalizeUsername } from "@/lib/app-helpers";
+import { useProfileAvatar } from "@/hooks/use-profile-avatar";
 import {
   CopyIcon,
   KeyRoundIcon,
@@ -158,6 +159,7 @@ export function SettingsPage({
   onRegenerateBackupCodes,
 }: SettingsPageProps) {
   const { t } = useTranslation("settings");
+  const profileAvatarUrl = useProfileAvatar(request);
   const [totpQrDataUrl, setTotpQrDataUrl] = useState("");
   const [registeringPasskey, setRegisteringPasskey] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -300,6 +302,13 @@ export function SettingsPage({
             <CardContent className="flex flex-col gap-5">
               <div className="flex flex-wrap items-center gap-3">
                 <Avatar className="size-12 rounded-xl">
+                  {profileAvatarUrl ? (
+                    <AvatarImage
+                      src={profileAvatarUrl}
+                      alt=""
+                      className="object-cover"
+                    />
+                  ) : null}
                   <AvatarFallback>
                     {sessionUser.handle.slice(0, 1).toUpperCase()}
                   </AvatarFallback>

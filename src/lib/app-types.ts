@@ -244,3 +244,45 @@ export type NavigationTabItem = {
 	label: string;
 	icon: LucideIcon;
 };
+
+export type LatestBackupProfileSummary = {
+	id: string;
+	name: string;
+	server?: string | null;
+	active: boolean;
+	createdAt?: string | null;
+	playerRating?: number | null;
+	plate?: string | null;
+	title?: string | null;
+	hasAvatar?: boolean;
+};
+
+export type LatestBackupProfilesResponse = {
+	backup: {
+		id: string;
+		game: string;
+		committedAt: string;
+	};
+	profiles: LatestBackupProfileSummary[];
+};
+
+export type ProfileAvatarResponse = {
+	profileId: string;
+	contentType?: string;
+	avatarDataUrl: string;
+};
+
+/** Row of the public `/{game}/v1/community/aliases:sync` payload. */
+export type ApprovedAliasRow = {
+	candidateId: string;
+	songIdentifier: string;
+	aliasText: string;
+	status?: string;
+	updatedAt?: string;
+	approvedAt: string | null;
+};
+
+export type ApprovedAliasesResponse = {
+	rows: ApprovedAliasRow[];
+	complete?: boolean;
+};

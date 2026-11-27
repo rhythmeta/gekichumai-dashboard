@@ -7,6 +7,7 @@ import type {
   AdminDashboardStats,
 } from "@/lib/app-types";
 import { AliasesPage } from "./AliasesPage";
+import { ApprovedAliasesCard } from "@/components/community/ApprovedAliasesCard";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { GameSelect } from "./GameSelect";
 type Song = {
@@ -128,73 +129,80 @@ function GameCommunity({
     [songs, songName],
   );
   return (
-    <AliasesPage
-      isAdmin={isAdmin}
-      communityDailyCount={count}
-      communityRows={rows}
-      communitySongName={songName}
-      communitySongSuggestions={suggestions}
-      communityAliasText={alias}
-      adminStats={stats}
-      adminCandidates={adminRows}
-      candidateVoteCloseDrafts={drafts}
-      resolveSongTitle={(id) => byId.get(id)?.title ?? id}
-      resolveSongCoverUrl={(id) => byId.get(id)?.coverUrl ?? null}
-      onCommunitySongNameChange={setSongName}
-      onCommunityAliasTextChange={setAlias}
-      onCommunitySubmit={() =>
-        run(async () => {
-          const song = songs.find(
-            (row) => row.songIdentifier === songName || row.title === songName,
-          );
-          if (!song) throw new Error("请选择有效曲目");
-          const result = await request<{ status: string; message?: string }>(
-            `${base}/community/candidates`,
-            {
+    <>
+      <AliasesPage
+        isAdmin={isAdmin}
+        communityDailyCount={count}
+        communityRows={rows}
+        communitySongName={songName}
+        communitySongSuggestions={suggestions}
+        communityAliasText={alias}
+        adminStats={stats}
+        adminCandidates={adminRows}
+        candidateVoteCloseDrafts={drafts}
+        resolveSongTitle={(id) => byId.get(id)?.title ?? id}
+        resolveSongCoverUrl={(id) => byId.get(id)?.coverUrl ?? null}
+        onCommunitySongNameChange={setSongName}
+        onCommunityAliasTextChange={setAlias}
+        onCommunitySubmit={() =>
+          run(async () => {
+            const song = songs.find(
+              (row) => row.songIdentifier === songName || row.title === songName,
+            );
+            if (!song) throw new Error("请选择有效曲目");
+            const result = await request<{ status: string; message?: string }>(
+              `${base}/community/candidates`,
+              {
+                method: "POST",
+                body: { songIdentifier: song.songIdentifier, aliasText: alias },
+              },
+            );
+            if (
+              result.status === "rejected_duplicate" ||
+              result.status === "quota_exceeded"
+            )
+              throw new Error(result.message ?? "无法提交别名");
+            setAlias("");
+            toast.success("别名已提交");
+          })
+        }
+        onCommunityVote={(id, vote) =>
+          run(() =>
+            request(`${base}/community/candidates/${id}:vote`, {
               method: "POST",
-              body: { songIdentifier: song.songIdentifier, aliasText: alias },
-            },
-          );
-          if (
-            result.status === "rejected_duplicate" ||
-            result.status === "quota_exceeded"
+              body: { vote },
+            }),
           )
-            throw new Error(result.message ?? "无法提交别名");
-          setAlias("");
-          toast.success("别名已提交");
-        })
-      }
-      onCommunityVote={(id, vote) =>
-        run(() =>
-          request(`${base}/community/candidates/${id}:vote`, {
-            method: "POST",
-            body: { vote },
-          }),
-        )
-      }
-      onLoadAdminCandidates={() => run(async () => {})}
-      onAdminRollCycle={() =>
-        run(() => request(`${base}/admin:rollCycle`, { method: "POST" }))
-      }
-      onCandidateVoteCloseDraftChange={(id, value) =>
-        setDrafts((previous) => ({ ...previous, [id]: value }))
-      }
-      onAdminVoteWindowUpdate={(id) =>
-        run(() =>
-          request(`${base}/admin/candidates/${id}:updateVoteWindow`, {
-            method: "POST",
-            body: { voteCloseAt: new Date(drafts[id]).toISOString() },
-          }),
-        )
-      }
-      onAdminCandidateStatusUpdate={(id, status) =>
-        run(() =>
-          request(`${base}/admin/candidates/${id}:setStatus`, {
-            method: "POST",
-            body: { status },
-          }),
-        )
-      }
-    />
+        }
+        onLoadAdminCandidates={() => run(async () => {})}
+        onAdminRollCycle={() =>
+          run(() => request(`${base}/admin:rollCycle`, { method: "POST" }))
+        }
+        onCandidateVoteCloseDraftChange={(id, value) =>
+          setDrafts((previous) => ({ ...previous, [id]: value }))
+        }
+        onAdminVoteWindowUpdate={(id) =>
+          run(() =>
+            request(`${base}/admin/candidates/${id}:updateVoteWindow`, {
+              method: "POST",
+              body: { voteCloseAt: new Date(drafts[id]).toISOString() },
+            }),
+          )
+        }
+        onAdminCandidateStatusUpdate={(id, status) =>
+          run(() =>
+            request(`${base}/admin/candidates/${id}:setStatus`, {
+              method: "POST",
+              body: { status },
+            }),
+          )
+        }
+      />
+      <ApprovedAliasesCard
+        request={request}
+        game={game}
+        resolveSongTitle={(id) => byId.get(id)?.title ?? id}
+      />
+    </>
   );
 }
