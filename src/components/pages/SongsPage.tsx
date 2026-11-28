@@ -81,8 +81,10 @@ import { useBackupData } from "@/store/backup-data";
 import { useTablePagination } from "@/lib/use-table-pagination";
 import { cn } from "@/lib/utils";
 
-const PAGE_SIZE = 50;
-const PAGE_SIZE_OPTIONS = [20, 50, 100];
+const LIST_PAGE_SIZE = 50;
+const LIST_PAGE_SIZE_OPTIONS = [20, 50, 100];
+const GRID_ROW_COUNT = 10;
+const GRID_ROW_COUNT_OPTIONS = [5, 10, 20];
 const LEVEL_STEP = 0.1;
 const SPECIAL_LEVEL_THRESHOLD = 16;
 
@@ -105,6 +107,7 @@ type StoredSongSettings = {
   playableOnly: boolean;
   hideDeleted: boolean;
   pageSize: number;
+  gridRows: number;
 };
 
 const SORT_KEYS: readonly SortKey[] = ["default", "versionDate", "difficulty"];
@@ -155,9 +158,15 @@ function readSongSettings(game: Game): Partial<StoredSongSettings> {
       settings.hideDeleted = parsed.hideDeleted;
     if (
       typeof parsed.pageSize === "number" &&
-      PAGE_SIZE_OPTIONS.includes(parsed.pageSize)
+      LIST_PAGE_SIZE_OPTIONS.includes(parsed.pageSize)
     ) {
       settings.pageSize = parsed.pageSize;
+    }
+    if (
+      typeof parsed.gridRows === "number" &&
+      GRID_ROW_COUNT_OPTIONS.includes(parsed.gridRows)
+    ) {
+      settings.gridRows = parsed.gridRows;
     }
     return settings;
   } catch {
@@ -213,6 +222,14 @@ function SkeletonGrid() {
   );
 }
 
+function getGridColumnCount() {
+  if (typeof window === "undefined") return 2;
+  if (window.innerWidth >= 1280) return 5;
+  if (window.innerWidth >= 1024) return 4;
+  if (window.innerWidth >= 640) return 3;
+  return 2;
+}
+
 export function SongsPage({
   game,
   request,
@@ -257,8 +274,16 @@ export function SongsPage({
   );
   const { favoriteSongIds } = useBackupData();
   const [view, setView] = useState<ViewMode>("grid");
+  const [gridColumns, setGridColumns] = useState(2);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogSong | null>(null);
+
+  useEffect(() => {
+    const updateGridColumns = () => setGridColumns(getGridColumnCount());
+    updateGridColumns();
+    window.addEventListener("resize", updateGridColumns);
+    return () => window.removeEventListener("resize", updateGridColumns);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -503,10 +528,35 @@ export function SongsPage({
     versionDates,
   ]);
 
-  const { page, pageCount, pageSize, pagedItems, setPage, setPageSize } =
-    useTablePagination(filtered, {
-      initialPageSize: initialSettings.pageSize ?? PAGE_SIZE,
-    });
+  const listPagination = useTablePagination(filtered, {
+    initialPageSize: initialSettings.pageSize ?? LIST_PAGE_SIZE,
+  });
+  const gridPageRows = useMemo(
+    () =>
+      Array.from(
+        { length: Math.ceil(filtered.length / gridColumns) },
+        (_, index) => index,
+      ),
+    [filtered.length, gridColumns],
+  );
+  const gridPagination = useTablePagination(gridPageRows, {
+    initialPageSize: initialSettings.gridRows ?? GRID_ROW_COUNT,
+  });
+  const activePagination = view === "grid" ? gridPagination : listPagination;
+  const { page, pageCount, pageSize, setPage, setPageSize } = activePagination;
+  const pagedItems = useMemo(() => {
+    if (view === "list") return listPagination.pagedItems;
+    const firstRow = gridPagination.pagedItems[0];
+    const lastRow = gridPagination.pagedItems.at(-1);
+    if (firstRow === undefined || lastRow === undefined) return [];
+    return filtered.slice(firstRow * gridColumns, (lastRow + 1) * gridColumns);
+  }, [
+    filtered,
+    gridColumns,
+    gridPagination.pagedItems,
+    listPagination.pagedItems,
+    view,
+  ]);
 
   useEffect(() => {
     persistSongSettings(game, {
@@ -521,7 +571,8 @@ export function SongsPage({
       favoritesOnly,
       playableOnly,
       hideDeleted,
-      pageSize,
+      pageSize: listPagination.pageSize,
+      gridRows: gridPagination.pageSize,
     });
   }, [
     game,
@@ -536,7 +587,8 @@ export function SongsPage({
     favoritesOnly,
     playableOnly,
     hideDeleted,
-    pageSize,
+    listPagination.pageSize,
+    gridPagination.pageSize,
   ]);
 
   const filterKey = JSON.stringify({
@@ -551,7 +603,7 @@ export function SongsPage({
   });
   useEffect(() => {
     setPage(1);
-  }, [filterKey, setPage]);
+  }, [filterKey, setPage, view]);
 
   const resetFilters = useCallback(() => {
     setSearch("");
@@ -610,13 +662,15 @@ export function SongsPage({
   const filteredEmpty = filtered.length === 0;
 
   const paginationBar = (className?: string) =>
-    !filteredEmpty && filtered.length > pageSize ? (
+    !filteredEmpty && pageCount > 1 ? (
       <TablePagination
         className={className}
         page={page}
         pageCount={pageCount}
         pageSize={pageSize}
-        pageSizeOptions={PAGE_SIZE_OPTIONS}
+        pageSizeOptions={
+          view === "grid" ? GRID_ROW_COUNT_OPTIONS : LIST_PAGE_SIZE_OPTIONS
+        }
         onPageChange={setPage}
         onPageSizeChange={setPageSize}
       />

@@ -562,7 +562,16 @@ function buildVersionOptions(
       releaseDate: asString(row?.releaseDate) ?? dates.get(value) ?? null,
     });
   }
-  return [...options.values()];
+  return [...options.values()].sort((left, right) => {
+    const leftTime = left.releaseDate ? Date.parse(left.releaseDate) : NaN;
+    const rightTime = right.releaseDate ? Date.parse(right.releaseDate) : NaN;
+    const leftHasDate = !Number.isNaN(leftTime);
+    const rightHasDate = !Number.isNaN(rightTime);
+    if (!leftHasDate && !rightHasDate) return 0;
+    if (!leftHasDate) return 1;
+    if (!rightHasDate) return -1;
+    return rightTime - leftTime;
+  });
 }
 
 function buildTypeOptions(rows: unknown[]): CatalogOption[] {

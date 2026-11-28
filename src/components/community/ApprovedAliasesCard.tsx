@@ -52,6 +52,17 @@ function formatApprovedAt(value: string | null | undefined): string | null {
   }).format(date);
 }
 
+function compareApprovedAt(left: ApprovedAliasRow, right: ApprovedAliasRow) {
+  const leftTime = left.approvedAt ? Date.parse(left.approvedAt) : NaN;
+  const rightTime = right.approvedAt ? Date.parse(right.approvedAt) : NaN;
+  const leftHasDate = !Number.isNaN(leftTime);
+  const rightHasDate = !Number.isNaN(rightTime);
+  if (!leftHasDate && !rightHasDate) return 0;
+  if (!leftHasDate) return 1;
+  if (!rightHasDate) return -1;
+  return rightTime - leftTime;
+}
+
 function SkeletonRow() {
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
@@ -133,9 +144,10 @@ export function ApprovedAliasesCard({
 
   const filteredRows = useMemo(() => {
     if (!rows) return [];
+    const orderedRows = [...rows].sort(compareApprovedAt);
     const query = normalizeSearchText(search.trim());
-    if (!query) return rows;
-    return rows.filter((row) => {
+    if (!query) return orderedRows;
+    return orderedRows.filter((row) => {
       const songTitle = resolveSongTitle(row.songIdentifier);
       return normalizeSearchText(
         `${row.aliasText} ${row.songIdentifier} ${songTitle}`,

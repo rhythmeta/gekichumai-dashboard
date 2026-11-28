@@ -33,6 +33,7 @@ export type TrendTone = keyof typeof TONE_COLORS;
 const CHART_WIDTH = 240;
 const CHART_HEIGHT = 64;
 const PAD_Y = 6;
+const DISPLAY_RANGE_QUANTILE = 0.1;
 
 type Geometry = {
   minimum: number;
@@ -41,18 +42,42 @@ type Geometry = {
   points: Array<{ percent: number; y: number; x: number; point: TrendPoint }>;
 };
 
+function quantile(sortedValues: number[], ratio: number): number {
+  const position = (sortedValues.length - 1) * ratio;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return sortedValues[lower];
+  const fraction = position - lower;
+  return (
+    sortedValues[lower] + (sortedValues[upper] - sortedValues[lower]) * fraction
+  );
+}
+
 function buildGeometry(points: TrendPoint[]): Geometry | null {
   if (points.length === 0) return null;
   const values = points.map((point) => point.value);
-  const minimum = Math.min(...values);
-  const maximum = Math.max(...values);
+  const actualMinimum = Math.min(...values);
+  const actualMaximum = Math.max(...values);
+  const sortedValues = [...values].sort((left, right) => left - right);
+  // Keep isolated low/high samples from flattening the rest of the trend.
+  // The raw value remains available in the tooltip while its marker is
+  // clamped to the displayed range.
+  const trimmedMinimum = quantile(sortedValues, DISPLAY_RANGE_QUANTILE);
+  const trimmedMaximum = quantile(sortedValues, 1 - DISPLAY_RANGE_QUANTILE);
+  const useTrimmedRange = trimmedMaximum > trimmedMinimum;
+  const minimum = useTrimmedRange ? trimmedMinimum : actualMinimum;
+  const maximum = useTrimmedRange ? trimmedMaximum : actualMaximum;
   const span = maximum - minimum || 1;
   const step = points.length > 1 ? (CHART_WIDTH - 2) / (points.length - 1) : 0;
   const x = (index: number) => 1 + index * step;
-  const y = (value: number) =>
-    CHART_HEIGHT -
-    PAD_Y -
-    ((value - minimum) / span) * (CHART_HEIGHT - PAD_Y * 2);
+  const y = (value: number) => {
+    const displayValue = Math.min(Math.max(value, minimum), maximum);
+    return (
+      CHART_HEIGHT -
+      PAD_Y -
+      ((displayValue - minimum) / span) * (CHART_HEIGHT - PAD_Y * 2)
+    );
+  };
   const drawn = points.map((point, index) => ({
     x: x(index),
     y: y(point.value),
