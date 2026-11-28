@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 export type TrendDetail = { label: string; value: string };
@@ -34,6 +34,7 @@ const CHART_WIDTH = 240;
 const CHART_HEIGHT = 64;
 const PAD_Y = 6;
 const DISPLAY_RANGE_QUANTILE = 0.1;
+const MIN_DATE_LABEL_WIDTH = 48;
 
 type Geometry = {
   minimum: number;
@@ -103,6 +104,27 @@ function formatAxisDate(at: number): string {
   });
 }
 
+function pickDateLabelIndexes(
+  points: Array<{ point: TrendPoint }>,
+  plotWidth: number | null,
+): number[] {
+  const datedIndexes = points.flatMap((entry, index) =>
+    formatAxisDate(entry.point.at) ? [index] : [],
+  );
+  if (datedIndexes.length <= 1) return datedIndexes;
+
+  const maxLabels = Math.max(
+    2,
+    Math.floor((plotWidth ?? CHART_WIDTH) / MIN_DATE_LABEL_WIDTH),
+  );
+  if (datedIndexes.length <= maxLabels) return datedIndexes;
+
+  return Array.from({ length: maxLabels }, (_, index) => {
+    const position = index / (maxLabels - 1);
+    return datedIndexes[Math.round(position * (datedIndexes.length - 1))];
+  });
+}
+
 function formatTooltipDate(at: number): string {
   if (!(at > 0)) return "";
   const date = new Date(at);
@@ -138,6 +160,8 @@ export function ScoreTrendChart({
   renderTooltip?: (index: number) => ReactNode;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [plotWidth, setPlotWidth] = useState<number | null>(null);
   const primaryGeometry = useMemo(
     () => buildGeometry(primary.points),
     [primary.points],
@@ -146,6 +170,20 @@ export function ScoreTrendChart({
     () => (secondary ? buildGeometry(secondary.points) : null),
     [secondary],
   );
+  const dateLabelIndexes = useMemo(
+    () => pickDateLabelIndexes(primaryGeometry?.points ?? [], plotWidth),
+    [plotWidth, primaryGeometry],
+  );
+
+  useEffect(() => {
+    const plot = plotRef.current;
+    if (!plot) return;
+    const updateWidth = () => setPlotWidth(plot.getBoundingClientRect().width);
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(plot);
+    return () => observer.disconnect();
+  }, [primaryGeometry]);
 
   const latest = (series: TrendSeries) =>
     series.points.length > 0
@@ -203,6 +241,7 @@ export function ScoreTrendChart({
             </div>
 
             <div
+              ref={plotRef}
               className="relative min-w-0 flex-1"
               onMouseLeave={() => setHovered(null)}
             >
@@ -255,27 +294,59 @@ export function ScoreTrendChart({
                   />
                 ) : null}
                 {primaryGeometry.points.map((entry, index) => (
-                  <circle
-                    key={`p-${entry.point.at}-${index}`}
-                    cx={entry.x}
-                    cy={entry.y}
-                    r={activeIndex === index ? 2.6 : 1.6}
-                    fill={TONE_COLORS[primary.tone]}
-                    className="cursor-pointer"
-                    onMouseEnter={() => setHovered(index)}
-                  />
+                  <g key={`p-${entry.point.at}-${index}`}>
+                    <circle
+                      cx={entry.x}
+                      cy={entry.y}
+                      r={8}
+                      fill="transparent"
+                      className="cursor-pointer"
+                      onMouseEnter={() => setHovered(index)}
+                      onPointerDown={(event) => {
+                        event.stopPropagation();
+                        setHovered(index);
+                      }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setHovered(index);
+                      }}
+                    />
+                    <circle
+                      cx={entry.x}
+                      cy={entry.y}
+                      r={activeIndex === index ? 2.6 : 1.6}
+                      fill={TONE_COLORS[primary.tone]}
+                      pointerEvents="none"
+                    />
+                  </g>
                 ))}
                 {secondaryGeometry && secondary
                   ? secondaryGeometry.points.map((entry, index) => (
-                      <circle
-                        key={`s-${entry.point.at}-${index}`}
-                        cx={entry.x}
-                        cy={entry.y}
-                        r={activeIndex === index ? 2.6 : 1.6}
-                        fill={TONE_COLORS[secondary.tone]}
-                        className="cursor-pointer"
-                        onMouseEnter={() => setHovered(index)}
-                      />
+                      <g key={`s-${entry.point.at}-${index}`}>
+                        <circle
+                          cx={entry.x}
+                          cy={entry.y}
+                          r={8}
+                          fill="transparent"
+                          className="cursor-pointer"
+                          onMouseEnter={() => setHovered(index)}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            setHovered(index);
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setHovered(index);
+                          }}
+                        />
+                        <circle
+                          cx={entry.x}
+                          cy={entry.y}
+                          r={activeIndex === index ? 2.6 : 1.6}
+                          fill={TONE_COLORS[secondary.tone]}
+                          pointerEvents="none"
+                        />
+                      </g>
                     ))
                   : null}
               </svg>
@@ -345,20 +416,24 @@ export function ScoreTrendChart({
           <div className="flex gap-1.5">
             <span className="w-11 shrink-0" />
             <div className="relative h-3 min-w-0 flex-1">
-              {primaryGeometry.points.map((entry, index) => (
-                <span
-                  key={`d-${entry.point.at}-${index}`}
-                  className={cn(
-                    "absolute top-0 -translate-x-1/2 text-[0.55rem] whitespace-nowrap tabular-nums",
-                    activeIndex === index
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                  style={{ left: `${entry.percent}%` }}
-                >
-                  {formatAxisDate(entry.point.at)}
-                </span>
-              ))}
+              {dateLabelIndexes.map((index) => {
+                const entry = primaryGeometry.points[index];
+                if (!entry) return null;
+                return (
+                  <span
+                    key={`d-${entry.point.at}-${index}`}
+                    className={cn(
+                      "absolute top-0 -translate-x-1/2 text-[0.55rem] whitespace-nowrap tabular-nums",
+                      activeIndex === index
+                        ? "font-semibold text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                    style={{ left: `${entry.percent}%` }}
+                  >
+                    {formatAxisDate(entry.point.at)}
+                  </span>
+                );
+              })}
             </div>
             <span className="w-12 shrink-0" />
           </div>
