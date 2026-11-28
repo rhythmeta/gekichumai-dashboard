@@ -149,6 +149,23 @@ function toNonEmptyString(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function resolveBackupDownloadUrl(downloadUrl: string): string {
+	if (typeof window === "undefined") return downloadUrl;
+
+	try {
+		const url = new URL(downloadUrl, window.location.origin);
+		const backupOrigin = new URL(
+			process.env.NEXT_PUBLIC_BACKUP_BASE_URL ?? "https://backups.rhythmeta.org",
+		).origin;
+		if (url.origin !== backupOrigin || !url.pathname.startsWith("/backups/")) {
+			return url.href;
+		}
+		return `${window.location.origin}${url.pathname}${url.search}`;
+	} catch {
+		return downloadUrl;
+	}
+}
+
 /** Only absolute http(s) URLs are rendered as `<img src>` fallbacks. */
 function sanitizeAvatarUrl(value: unknown): string | null {
   const trimmed = toNonEmptyString(value);
@@ -593,7 +610,9 @@ async function loadGameBackup(
     try {
       // Public object storage: plain fetch, never through `request` (which
       // prefixes the API base URL and attaches the access token).
-      const response = await fetch(downloadUrl, { cache: "no-store" });
+      const response = await fetch(resolveBackupDownloadUrl(downloadUrl), {
+        cache: "no-store",
+      });
       if (!response.ok) {
         throw new Error(`backup download failed (${response.status})`);
       }

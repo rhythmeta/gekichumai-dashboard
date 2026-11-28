@@ -29,15 +29,15 @@ full record).
 
 `GET /{game}/v1/backups/latest/profiles` returns the backup id, its `downloadUrl` and the profile
 summaries; the file itself (`backups/{game}/{uuid}.pb.gz`, a gzipped `rhythmeta.backup.v1.Snapshot`)
-is downloaded straight from `NEXT_PUBLIC_BACKUP_BASE_URL` (default `https://backups.rhythmeta.org`)
-and decoded in the browser by `src/lib/backup-snapshot.ts`. Scores and play records therefore need no
-JSON endpoint. The chosen profile is remembered per game in `localStorage`
+is fetched through the dashboard's same-origin `/backups/*` proxy and decoded in the browser by
+`src/lib/backup-snapshot.ts`. Scores and play records therefore need no JSON endpoint. The chosen
+profile is remembered per game in `localStorage`
 (`rhythmeta.dashboard.profile.v1.{game}`); it defaults to the profile marked active in the backup and
 falls back to that profile when a newer backup no longer contains the remembered one.
 
-Because the browser fetches the object directly, the public bucket must answer `GET` with CORS for the
-dashboard origin (for example `https://dash.rhythmeta.org`), and the host is part of `connect-src`
-in both CSP generators. Without CORS the UI degrades to the profile summaries only.
+The Cloudflare Worker proxies the public object-storage request so the browser can read the snapshot
+without requiring CORS headers from the storage host. The storage host remains in `connect-src` for
+compatibility with direct public links.
 
 ## OAuth developer platform
 

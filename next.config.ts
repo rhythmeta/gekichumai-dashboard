@@ -74,10 +74,13 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "form-action 'self'",
-  `connect-src ${connectSources.join(" ")}`,
+  `connect-src ${[
+    ...connectSources,
+    "https://cloudflareinsights.com",
+  ].join(" ")}`,
   `img-src ${imageSources.join(" ")}`,
   "font-src 'self' data:",
-  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
 ].join("; ");
 
@@ -95,6 +98,16 @@ export default function nextConfig(phase: string): NextConfig {
     },
     ...(phase === PHASE_DEVELOPMENT_SERVER
       ? {
+          async rewrites() {
+            return backupOrigin
+              ? [
+                  {
+                    source: "/backups/:path*",
+                    destination: `${backupOrigin}/backups/:path*`,
+                  },
+                ]
+              : [];
+          },
           async headers() {
             return [
               {
