@@ -51,6 +51,7 @@ export type RequestFn = <T>(
 export type Game = "maimaid" | "chunithmd";
 
 const GAME_STORAGE_KEY = "rhythmeta.dashboard.game";
+const LOCATION_STORAGE_KEY = "rhythmeta.dashboard.location";
 
 function readStoredGame(): Game {
   if (typeof window === "undefined") return "maimaid";
@@ -80,9 +81,8 @@ function hashForLocation(page: AppPage, section: AccountSection): string {
   return `#account/${section === "oauthApps" ? "oauth-apps" : section}`;
 }
 
-function readLocationFromHash(isAdmin: boolean): NavLocation {
-  if (typeof window === "undefined") return DEFAULT_LOCATION;
-  const [pagePart = "", sectionPart = ""] = window.location.hash
+function parseLocation(hash: string): NavLocation {
+  const [pagePart = "", sectionPart = ""] = hash
     .replace(/^#/, "")
     .split("/");
   if (pagePart === "account") {
@@ -95,10 +95,19 @@ function readLocationFromHash(isAdmin: boolean): NavLocation {
     return { page: "account", section };
   }
   if (isAppPage(pagePart)) {
-    if (pagePart === "users" && !isAdmin) return DEFAULT_LOCATION;
     return { page: pagePart, section: "overview" };
   }
   return DEFAULT_LOCATION;
+}
+
+function readInitialLocation(): NavLocation {
+  if (typeof window === "undefined") return DEFAULT_LOCATION;
+  if (window.location.hash) return parseLocation(window.location.hash);
+  try {
+    return parseLocation(window.localStorage.getItem(LOCATION_STORAGE_KEY) ?? "");
+  } catch {
+    return DEFAULT_LOCATION;
+  }
 }
 
 function PreviewModeBanner() {
@@ -132,9 +141,7 @@ export default function App() {
   );
   const [initializing, setInitializing] = useState(!previewMode);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [navLocation, setNavLocation] = useState<NavLocation>(() =>
-    readLocationFromHash(true),
-  );
+  const [navLocation, setNavLocation] = useState<NavLocation>(readInitialLocation);
   const [game, setGame] = useState<Game>(readStoredGame);
   const sessionRef = useRef(session);
   useLayoutEffect(() => {
@@ -205,20 +212,25 @@ export default function App() {
   // `#backups`, `#developer`, `#users` (legacy `#account` means overview).
   useEffect(() => {
     const syncFromHash = () => {
-      setNavLocation(readLocationFromHash(session?.user.isAdmin ?? true));
+      setNavLocation(parseLocation(window.location.hash));
     };
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
-  }, [session?.user.isAdmin]);
+  }, []);
 
   useEffect(() => {
-    if (!session || typeof window === "undefined") return;
+    if (!session || isConsentRoute || isDeviceRoute || authFlow.isAppAuthFlow) return;
     const allowed = navLocation.page !== "users" || session.user.isAdmin;
     const nextLocation: NavLocation = allowed ? navLocation : DEFAULT_LOCATION;
     if (!allowed) {
       setNavLocation(nextLocation);
     }
     const nextHash = hashForLocation(nextLocation.page, nextLocation.section);
+    try {
+      window.localStorage.setItem(LOCATION_STORAGE_KEY, nextHash);
+    } catch {
+      // The URL still preserves the selected page when storage is unavailable.
+    }
     if (window.location.hash !== nextHash) {
       window.history.replaceState(
         null,
@@ -226,7 +238,7 @@ export default function App() {
         `${window.location.pathname}${window.location.search}${nextHash}`,
       );
     }
-  }, [navLocation, session]);
+  }, [navLocation, session, isConsentRoute, isDeviceRoute, authFlow.isAppAuthFlow]);
 
   const navigate = useCallback((page: AppPage) => {
     setNavLocation({ page, section: "overview" });

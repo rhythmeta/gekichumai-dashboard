@@ -11,7 +11,10 @@
     "logout": "登出",
     "navMenu": "導覽選單",
     "openNavMenu": "開啟導覽選單",
-    "toggleTheme": "切換主題",
+    "toggleTheme": "目前主題為{{current}}，點擊切換到{{next}}",
+    "themeLight": "淺色",
+    "themeDark": "深色",
+    "themeAuto": "自動",
     "game": "遊戲"
   },
   "auth": {
@@ -896,6 +899,7 @@
     "searchPlaceholder": "搜尋標題、藝術家、別名或 ID",
     "searchLabel": "搜尋歌曲",
     "counts": "篩選後 {{filtered}} / 共 {{total}} 首",
+    "compactView": "精簡檢視",
     "viewGrid": "網格檢視",
     "viewList": "列表檢視",
     "filtersToggle": "篩選",

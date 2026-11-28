@@ -11,7 +11,10 @@
     "logout": "退出登录",
     "navMenu": "导航菜单",
     "openNavMenu": "打开导航菜单",
-    "toggleTheme": "切换主题",
+    "toggleTheme": "当前主题为{{current}}，点击切换到{{next}}",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeAuto": "自动",
     "game": "游戏"
   },
   "auth": {
@@ -896,6 +899,7 @@
     "searchPlaceholder": "搜索标题、艺术家、别名或 ID",
     "searchLabel": "搜索歌曲",
     "counts": "筛选后 {{filtered}} / 共 {{total}} 首",
+    "compactView": "紧凑视图",
     "viewGrid": "网格视图",
     "viewList": "列表视图",
     "filtersToggle": "筛选",

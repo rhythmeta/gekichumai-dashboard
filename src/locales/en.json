@@ -11,7 +11,10 @@
     "logout": "Log Out",
     "navMenu": "Navigation menu",
     "openNavMenu": "Open navigation menu",
-    "toggleTheme": "Toggle theme",
+    "toggleTheme": "Current theme is {{current}}. Switch to {{next}}.",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAuto": "Auto",
     "game": "Game"
   },
   "auth": {
@@ -896,6 +899,7 @@
     "searchPlaceholder": "Search title, artist, alias or ID",
     "searchLabel": "Search songs",
     "counts": "{{filtered}} of {{total}} songs",
+    "compactView": "Compact view",
     "viewGrid": "Grid view",
     "viewList": "List view",
     "filtersToggle": "Filters",

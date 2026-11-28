@@ -456,9 +456,6 @@ export function AppMobileHeader({
       <span className="min-w-0 truncate text-sm font-semibold">
         {APP_PAGE_LABELS[activePage]}
       </span>
-      <span className="ml-auto truncate text-xs text-muted-foreground">
-        Rhythmeta
-      </span>
     </header>
   );
 }

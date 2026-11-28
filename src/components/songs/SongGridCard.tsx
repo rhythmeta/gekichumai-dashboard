@@ -96,8 +96,8 @@ export function ChartBadge({
         )}
         title={`${lookup.typeLabel(chart.type)} · ${lookup.label(chart.difficulty)}${titleSuffix}`}
       >
-        <ScoreProgressDot game={game} color={visual.color} {...progress} />
         <span className="font-semibold">{lookup.typeLabel(chart.type)}</span>
+        <ScoreProgressDot game={game} color={visual.color} {...progress} />
         <span>{chartLevelText(chart)}</span>
       </span>
     );
@@ -140,17 +140,37 @@ export function ChartBadge({
 export function SongGridCard({
   song,
   charts,
+  compact,
   lookup,
   versionLabel,
   onSelect,
 }: {
   song: CatalogSong;
   charts: CatalogChart[];
+  compact: boolean;
   lookup: DifficultyLookup;
   versionLabel: (version: string | null) => string | null;
   onSelect: (song: CatalogSong) => void;
 }) {
   const version = versionLabel(song.version);
+  const chartBadges = (
+    <div
+      className={cn(
+        "flex flex-wrap gap-1",
+        compact ? "absolute inset-x-1.5 bottom-1.5" : "mt-0.5",
+      )}
+    >
+      {charts.slice(0, 6).map((chart) => (
+        <ChartBadge
+          key={chart.id}
+          chart={chart}
+          songId={song.id}
+          lookup={lookup}
+          className={compact ? "bg-card shadow-sm" : undefined}
+        />
+      ))}
+    </div>
+  );
   return (
     <button
       type="button"
@@ -177,6 +197,7 @@ export function SongGridCard({
             </Badge>
           ) : null}
         </div>
+        {compact && chartBadges}
       </div>
       <div className="flex min-w-0 flex-col gap-1 p-2.5">
         <MarqueeText
@@ -201,16 +222,7 @@ export function SongGridCard({
           ) : null}
           <span className="shrink-0 tabular-nums">BPM {song.bpm ?? "-"}</span>
         </div>
-        <div className="mt-0.5 flex flex-wrap gap-1">
-          {charts.slice(0, 6).map((chart) => (
-            <ChartBadge
-              key={chart.id}
-              chart={chart}
-              songId={song.id}
-              lookup={lookup}
-            />
-          ))}
-        </div>
+        {!compact && chartBadges}
       </div>
     </button>
   );

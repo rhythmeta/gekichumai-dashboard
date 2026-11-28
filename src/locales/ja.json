@@ -11,7 +11,10 @@
     "logout": "ログアウト",
     "navMenu": "ナビゲーションメニュー",
     "openNavMenu": "ナビゲーションメニューを開く",
-    "toggleTheme": "テーマを切り替え",
+    "toggleTheme": "現在のテーマは{{current}}。クリックで{{next}}に切り替え",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "themeAuto": "自動",
     "game": "ゲーム"
   },
   "auth": {
@@ -896,6 +899,7 @@
     "searchPlaceholder": "タイトル・アーティスト・別名・ID で検索",
     "searchLabel": "楽曲を検索",
     "counts": "{{filtered}} / {{total}} 曲",
+    "compactView": "コンパクト表示",
     "viewGrid": "グリッド表示",
     "viewList": "リスト表示",
     "filtersToggle": "絞り込み",

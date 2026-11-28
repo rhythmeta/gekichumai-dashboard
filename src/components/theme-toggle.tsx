@@ -1,23 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { useTranslation } from "react-i18next";
-import { MoonIcon, SunIcon } from "lucide-react";
+import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** Light/dark switch for the sidebar; next-themes owns the actual theme. */
+const themeCycle = {
+	light: { next: "dark", icon: SunIcon, label: "themeLight" },
+	dark: { next: "system", icon: MoonIcon, label: "themeDark" },
+	system: { next: "light", icon: MonitorIcon, label: "themeAuto" },
+} as const;
+
 export function ThemeToggle({ className }: { className?: string }) {
 	const { t } = useTranslation("sidebar");
-	const { resolvedTheme, setTheme } = useTheme();
-	const [mounted, setMounted] = useState(false);
-
-	useEffect(() => {
-		setMounted(true);
-	}, []);
-
-	const isDark = mounted && resolvedTheme === "dark";
+	const { theme, setTheme } = useTheme();
+	const { next, icon: Icon, label } = themeCycle[theme === "light" || theme === "dark" ? theme : "system"];
+	const description = t("toggleTheme", { current: t(label), next: t(themeCycle[next].label) });
 
 	return (
 		<Button
@@ -25,11 +24,11 @@ export function ThemeToggle({ className }: { className?: string }) {
 			variant="outline"
 			size="icon"
 			className={cn("shrink-0", className)}
-			aria-label={t("toggleTheme")}
-			title={t("toggleTheme")}
-			onClick={() => setTheme(isDark ? "light" : "dark")}
+			aria-label={description}
+			title={description}
+			onClick={() => setTheme(next)}
 		>
-			{isDark ? <SunIcon /> : <MoonIcon />}
+			<Icon aria-hidden />
 		</Button>
 	);
 }

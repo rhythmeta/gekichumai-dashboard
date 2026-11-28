@@ -108,6 +108,7 @@ type StoredSongSettings = {
   hideDeleted: boolean;
   pageSize: number;
   gridRows: number;
+  compactGrid: boolean;
 };
 
 const SORT_KEYS: readonly SortKey[] = ["default", "versionDate", "difficulty"];
@@ -168,6 +169,8 @@ function readSongSettings(game: Game): Partial<StoredSongSettings> {
     ) {
       settings.gridRows = parsed.gridRows;
     }
+    if (typeof parsed.compactGrid === "boolean")
+      settings.compactGrid = parsed.compactGrid;
     return settings;
   } catch {
     return {};
@@ -274,6 +277,9 @@ export function SongsPage({
   );
   const { favoriteSongIds } = useBackupData();
   const [view, setView] = useState<ViewMode>("grid");
+  const [compactGrid, setCompactGrid] = useState(
+    initialSettings.compactGrid ?? false,
+  );
   const [gridColumns, setGridColumns] = useState(2);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogSong | null>(null);
@@ -573,6 +579,7 @@ export function SongsPage({
       hideDeleted,
       pageSize: listPagination.pageSize,
       gridRows: gridPagination.pageSize,
+      compactGrid,
     });
   }, [
     game,
@@ -589,6 +596,7 @@ export function SongsPage({
     hideDeleted,
     listPagination.pageSize,
     gridPagination.pageSize,
+    compactGrid,
   ]);
 
   const filterKey = JSON.stringify({
@@ -681,8 +689,21 @@ export function SongsPage({
       <Card size="sm">
         <CardHeader>
           <CardTitle>{t("title")}</CardTitle>
-          <CardDescription>{t("description")}</CardDescription>
-          <CardAction>
+          <CardDescription className="max-sm:col-span-full max-sm:row-start-2">
+            {t("description")}
+          </CardDescription>
+          <CardAction className="flex items-center gap-3 max-sm:row-span-1">
+            {view === "grid" && (
+              <Label htmlFor="songs-compact-grid" className="gap-1.5 text-xs">
+                {t("compactView")}
+                <Switch
+                  id="songs-compact-grid"
+                  size="sm"
+                  checked={compactGrid}
+                  onCheckedChange={setCompactGrid}
+                />
+              </Label>
+            )}
             <ToggleGroup
               type="single"
               variant="outline"
@@ -1005,6 +1026,7 @@ export function SongsPage({
                 <SongGridCard
                   key={row.song.id}
                   song={row.song}
+                  compact={compactGrid}
                   charts={displayCharts(row)}
                   lookup={lookup}
                   versionLabel={versionLabel}

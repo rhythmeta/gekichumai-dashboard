@@ -523,6 +523,7 @@ function DifficultyChoice({
       <span
         className={cn(
           "text-xs font-medium",
+          chart.type === "utage" && "order-first",
           selected ? "text-foreground" : "text-muted-foreground",
         )}
       >
