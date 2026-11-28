@@ -15,6 +15,30 @@ Configuration: `NEXT_PUBLIC_BACKEND_URL` defaults to `https://api.rhythmeta.org`
 
 App login requires a registered client ID, exact callback URI, random state and an S256 PKCE challenge. It returns a one-use authorization code to the app. Public backup links use no-referrer handling.
 
+## Local preview mode (development only)
+
+`NEXT_PUBLIC_PREVIEW_MODE=1 pnpm dev` boots the dashboard with a built-in admin session (`Shiko#1234`) and an in-memory mock for every account, backup, community, OAuth developer and admin endpoint (`src/lib/preview-request.ts`). The login screen is skipped, nothing is sent to the backend, and an amber “Preview mode” banner is shown above the layout. The flag is inlined at build time: production builds without it keep the real authentication and API flow. Public static assets such as `community-index.json` are still fetched from their CDN, and flows that need real cryptography (account creation, WebAuthn registration) return a `preview_unsupported` error.
+
+## Cloud backup data
+
+The dashboard reads the **latest committed backup** of the selected game and uses it for the personal
+data in the UI: the profile switcher on 账号 → 概览, the sidebar avatar, and the score block inside a
+song's difficulty card (achievement or score, rank, DX stars or OVER POWER, FC / FS / full-chain lamps,
+single-chart rating and the play history as a dual-axis line chart where hovering a point shows the
+full record).
+
+`GET /{game}/v1/backups/latest/profiles` returns the backup id, its `downloadUrl` and the profile
+summaries; the file itself (`backups/{game}/{uuid}.pb.gz`, a gzipped `rhythmeta.backup.v1.Snapshot`)
+is downloaded straight from `NEXT_PUBLIC_BACKUP_BASE_URL` (default `https://backups.rhythmeta.org`)
+and decoded in the browser by `src/lib/backup-snapshot.ts`. Scores and play records therefore need no
+JSON endpoint. The chosen profile is remembered per game in `localStorage`
+(`rhythmeta.dashboard.profile.v1.{game}`); it defaults to the profile marked active in the backup and
+falls back to that profile when a newer backup no longer contains the remembered one.
+
+Because the browser fetches the object directly, the public bucket must answer `GET` with CORS for the
+dashboard origin (for example `https://dash.rhythmeta.org`), and the host is part of `connect-src`
+in both CSP generators. Without CORS the UI degrades to the profile summaries only.
+
 ## OAuth developer platform
 
 The **开发者** tab lets any signed-in account register an application (icon, name, website, description, callback URIs or the device-code flow without callbacks, and scopes) and shows its review status and client credentials. Administrators review pending applications there with an optional note. The **账号 → OAuth 应用** tab lists granted applications with their scopes, authorization date, last use, per-game profile restrictions and a revoke action.

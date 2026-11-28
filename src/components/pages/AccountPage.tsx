@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { toast } from "sonner";
-import type { RequestFn } from "@/App";
+import type { Game, RequestFn } from "@/App";
 import type { Session } from "@/lib/session";
 import type {
+  AccountSection,
   MfaStatus,
   MfaSetup,
   PasskeyCredential,
@@ -14,10 +15,14 @@ export function AccountPage({
   session,
   setSession,
   request,
+  section,
+  game,
 }: {
   session: Session;
   setSession: (session: Session) => void;
   request: RequestFn;
+  section: AccountSection;
+  game: Game;
 }) {
   const [mfaStatus, setMfaStatus] = useState<MfaStatus | null>(null);
   const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);
@@ -54,6 +59,8 @@ export function AccountPage({
     <SettingsPage
       sessionUser={session.user}
       request={request}
+      section={section}
+      game={game}
       mfaStatus={mfaStatus}
       mfaSetup={mfaSetup}
       mfaSetupCode={mfaSetupCode}

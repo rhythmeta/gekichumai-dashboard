@@ -30,9 +30,23 @@ const staticAssetsOrigin = (() => {
     return null;
   }
 })();
+const backupOrigin = (() => {
+  try {
+    return new URL(
+      process.env.NEXT_PUBLIC_BACKUP_BASE_URL ??
+        "https://backups.rhythmeta.org",
+    ).origin;
+  } catch {
+    return null;
+  }
+})();
+
 const connectSources = ["'self'"];
 if (backendOrigin) {
   connectSources.push(backendOrigin);
+}
+if (backupOrigin && !connectSources.includes(backupOrigin)) {
+  connectSources.push(backupOrigin);
 }
 if (staticAssetsOrigin) {
   connectSources.push(staticAssetsOrigin);

@@ -9,7 +9,6 @@ import type {
 import { AliasesPage } from "./AliasesPage";
 import { ApprovedAliasesCard } from "@/components/community/ApprovedAliasesCard";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
-import { GameSelect } from "./GameSelect";
 type Song = {
   songIdentifier: string;
   title: string;
@@ -19,14 +18,14 @@ type Song = {
 export function CommunityPage({
   request,
   isAdmin,
+  game,
 }: {
   request: RequestFn;
   isAdmin: boolean;
+  game: Game;
 }) {
-  const [game, setGame] = useState<Game>("maimaid");
   return (
     <div className="flex flex-col gap-4">
-      <GameSelect game={game} onChange={setGame} />
       <GameCommunity
         key={game}
         game={game}
@@ -49,8 +48,6 @@ function GameCommunity({
     [count, setCount] = useState(0);
   const [adminRows, setAdminRows] = useState<AdminCandidate[]>([]),
     [stats, setStats] = useState<AdminDashboardStats | null>(null);
-  const [songName, setSongName] = useState(""),
-    [alias, setAlias] = useState("");
   const [songs, setSongs] = useState<Song[]>([]),
     [drafts, setDrafts] = useState<Record<string, string>>({});
   const base = `${game}/v1`;
@@ -117,55 +114,17 @@ function GameCommunity({
       toast.error((error as Error).message);
     }
   };
-  const suggestions = useMemo(
-    () =>
-      songs
-        .filter((song) =>
-          `${song.title} ${song.songIdentifier}`
-            .toLowerCase()
-            .includes(songName.toLowerCase()),
-        )
-        .slice(0, 20),
-    [songs, songName],
-  );
   return (
     <>
       <AliasesPage
         isAdmin={isAdmin}
         communityDailyCount={count}
         communityRows={rows}
-        communitySongName={songName}
-        communitySongSuggestions={suggestions}
-        communityAliasText={alias}
         adminStats={stats}
         adminCandidates={adminRows}
         candidateVoteCloseDrafts={drafts}
         resolveSongTitle={(id) => byId.get(id)?.title ?? id}
         resolveSongCoverUrl={(id) => byId.get(id)?.coverUrl ?? null}
-        onCommunitySongNameChange={setSongName}
-        onCommunityAliasTextChange={setAlias}
-        onCommunitySubmit={() =>
-          run(async () => {
-            const song = songs.find(
-              (row) => row.songIdentifier === songName || row.title === songName,
-            );
-            if (!song) throw new Error("请选择有效曲目");
-            const result = await request<{ status: string; message?: string }>(
-              `${base}/community/candidates`,
-              {
-                method: "POST",
-                body: { songIdentifier: song.songIdentifier, aliasText: alias },
-              },
-            );
-            if (
-              result.status === "rejected_duplicate" ||
-              result.status === "quota_exceeded"
-            )
-              throw new Error(result.message ?? "无法提交别名");
-            setAlias("");
-            toast.success("别名已提交");
-          })
-        }
         onCommunityVote={(id, vote) =>
           run(() =>
             request(`${base}/community/candidates/${id}:vote`, {
@@ -202,6 +161,7 @@ function GameCommunity({
         request={request}
         game={game}
         resolveSongTitle={(id) => byId.get(id)?.title ?? id}
+        resolveSongCoverUrl={(id) => byId.get(id)?.coverUrl ?? null}
       />
     </>
   );

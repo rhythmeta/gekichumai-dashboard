@@ -24,6 +24,21 @@ const staticAssetsOrigin = (() => {
     return null;
   }
 })();
+/**
+ * Cloud backups are served from a public object-storage host. The dashboard reads
+ * the latest backup file directly, so its origin must be allowed in connect-src.
+ */
+const backupOrigin = (() => {
+  try {
+    return new URL(
+      process.env.NEXT_PUBLIC_BACKUP_BASE_URL ??
+        "https://backups.rhythmeta.org",
+    ).origin;
+  } catch {
+    return null;
+  }
+})();
+
 const connectSources = ["'self'"];
 const imageSources = [
   "'self'",
@@ -35,6 +50,9 @@ if (backendOrigin) {
   connectSources.push(backendOrigin);
   imageSources.push(backendOrigin);
 }
+if (backupOrigin && !connectSources.includes(backupOrigin)) {
+  connectSources.push(backupOrigin);
+}
 if (staticAssetsOrigin) {
   connectSources.push(staticAssetsOrigin);
   imageSources.push(staticAssetsOrigin);
@@ -44,7 +62,11 @@ connectSources.push(
   "https://maimaid-assets.rhythmeta.org",
   "https://chunithmd-assets.rhythmeta.org",
 );
-imageSources.push("https://assets.rhythmeta.org", "https://maimaid-assets.rhythmeta.org", "https://chunithmd-assets.rhythmeta.org");
+imageSources.push(
+  "https://assets.rhythmeta.org",
+  "https://maimaid-assets.rhythmeta.org",
+  "https://chunithmd-assets.rhythmeta.org",
+);
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -62,6 +84,8 @@ const contentSecurityPolicy = [
 export default function nextConfig(phase: string): NextConfig {
   return {
     output: "export",
+    // Keep the dev-only indicator away from the sidebar's bottom-left controls.
+    devIndicators: { position: "bottom-right" },
     images: {
       unoptimized: true,
       remotePatterns: [

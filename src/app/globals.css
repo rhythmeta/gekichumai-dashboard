@@ -150,3 +150,14 @@
 		@apply font-sans;
 	}
 }
+
+/* Song title/artist marquee: scrolls horizontally on hover/focus when the
+   text overflows its container. */
+@keyframes marquee-scroll {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-50%);
+	}
+}

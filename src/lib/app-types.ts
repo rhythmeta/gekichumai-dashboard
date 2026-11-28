@@ -2,6 +2,9 @@ import type { LucideIcon } from "lucide-react";
 import type { Song } from "@/components/songs/types";
 
 export type ToastSeverity = "success" | "info" | "warning" | "error";
+
+/** Sub-page of the account area, mirrored in the sidebar and the URL hash. */
+export type AccountSection = "overview" | "security" | "oauthApps";
 export type AuthMode = "login" | "register" | "forgot" | "verify-email" | "reset-password";
 export type LoginStep = "email" | "password" | "mfa";
 

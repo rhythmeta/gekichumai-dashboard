@@ -17,7 +17,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { GameSelect } from "./GameSelect";
 type Backup = {
   id: string;
   deviceName: string;
@@ -27,11 +26,15 @@ type Backup = {
   committedAt: string;
   downloadUrl: string;
 };
-export function BackupsPage({ request }: { request: RequestFn }) {
-  const [game, setGame] = useState<Game>("maimaid");
+export function BackupsPage({
+  request,
+  game,
+}: {
+  request: RequestFn;
+  game: Game;
+}) {
   return (
     <div className="flex flex-col gap-4">
-      <GameSelect game={game} onChange={setGame} />
       <GameBackups key={game} game={game} request={request} />
     </div>
   );

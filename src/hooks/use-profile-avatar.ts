@@ -1,26 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { RequestFn } from "@/App";
+import type { Game, RequestFn } from "@/App";
 import type {
-	LatestBackupProfileSummary,
 	LatestBackupProfilesResponse,
 	ProfileAvatarResponse,
 } from "@/lib/app-types";
 
-const GAMES = ["maimaid", "chunithmd"] as const;
-type Game = (typeof GAMES)[number];
-
 const CACHE_TTL_MS = 10 * 60 * 1000;
-const SELECTION_CACHE_KEY = "rhythmeta.profileAvatar.selection.v1";
+const SELECTION_CACHE_KEY_PREFIX = "rhythmeta.profileAvatar.selection.v2";
 const IMAGE_CACHE_KEY_PREFIX = "rhythmeta.profileAvatar.image.v1";
-
-type Candidate = {
-	game: Game;
-	backupId: string;
-	committedAt: string;
-	profiles: LatestBackupProfileSummary[];
-};
 
 type AvatarSelection = {
 	game: Game;
@@ -64,7 +53,6 @@ function sanitizeAvatarUrl(value: unknown): string | null {
 	}
 }
 
-let discoveryInFlight: Promise<Candidate[]> | null = null;
 const avatarInFlight = new Map<string, Promise<string | null>>();
 
 function getSessionStorage(): Storage | null {
@@ -117,11 +105,16 @@ function imageCacheKey(selection: Pick<AvatarSelection, "game" | "backupId" | "p
 	return `${IMAGE_CACHE_KEY_PREFIX}.${selection.game}.${selection.backupId}.${selection.profileId}`;
 }
 
-function readSelection(): AvatarSelection | null {
-	const cached = readJson<AvatarSelection>(SELECTION_CACHE_KEY);
+function selectionCacheKey(game: Game): string {
+	return `${SELECTION_CACHE_KEY_PREFIX}.${game}`;
+}
+
+function readSelection(game: Game): AvatarSelection | null {
+	const cached = readJson<AvatarSelection>(selectionCacheKey(game));
 	if (!cached || !cached.game || !cached.backupId || !cached.profileId) {
 		return null;
 	}
+	if (cached.game !== game) return null;
 	return { ...cached, avatarUrl: sanitizeAvatarUrl(cached.avatarUrl) };
 }
 
@@ -131,8 +124,8 @@ function readImage(selection: AvatarSelection): CachedImage | null {
 	return { ...cached, avatarUrl: sanitizeAvatarUrl(cached.avatarUrl) };
 }
 
-function readCachedAvatar(): ProfileAvatarResult | undefined {
-	const selection = readSelection();
+function readCachedAvatar(game: Game): ProfileAvatarResult | undefined {
+	const selection = readSelection(game);
 	if (!selection || !isFresh(selection.cachedAt)) {
 		return undefined;
 	}
@@ -146,27 +139,17 @@ function readCachedAvatar(): ProfileAvatarResult | undefined {
 	};
 }
 
-function commitTime(candidate: Candidate): number {
-	const parsed = Date.parse(candidate.committedAt);
-	return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function chooseSelection(candidates: Candidate[]): AvatarSelection | null {
-	if (candidates.length === 0) return null;
-	const withActive = candidates.filter((candidate) =>
-		candidate.profiles.some((profile) => profile.active),
-	);
-	const pool = [...(withActive.length > 0 ? withActive : candidates)].sort(
-		(left, right) => commitTime(right) - commitTime(left),
-	);
-	const chosen = pool[0];
-	if (!chosen) return null;
+function chooseSelection(
+	game: Game,
+	payload: LatestBackupProfilesResponse,
+): AvatarSelection | null {
+	const profiles = Array.isArray(payload.profiles) ? payload.profiles : [];
 	const profile =
-		chosen.profiles.find((entry) => entry.active) ?? chosen.profiles[0];
-	if (!profile) return null;
+		profiles.find((entry) => entry.active) ?? profiles[0] ?? null;
+	if (!profile || !payload.backup?.id) return null;
 	return {
-		game: chosen.game,
-		backupId: chosen.backupId,
+		game,
+		backupId: payload.backup.id,
 		profileId: profile.id,
 		hasAvatar: profile.hasAvatar !== false,
 		avatarUrl: sanitizeAvatarUrl(profile.avatarUrl),
@@ -174,54 +157,39 @@ function chooseSelection(candidates: Candidate[]): AvatarSelection | null {
 	};
 }
 
-async function discoverCandidates(request: RequestFn): Promise<Candidate[]> {
-	if (!discoveryInFlight) {
-		const pending = Promise.all(
-			GAMES.map(async (game): Promise<Candidate | null> => {
-				try {
-					const payload = await request<LatestBackupProfilesResponse>(
-						`${game}/v1/backups/latest/profiles`,
-					);
-					if (
-						!payload?.backup?.id ||
-						!Array.isArray(payload.profiles) ||
-						payload.profiles.length === 0
-					) {
-						return null;
-					}
-					return {
-						game,
-						backupId: payload.backup.id,
-						committedAt: payload.backup.committedAt ?? "",
-						profiles: payload.profiles,
-					};
-				} catch {
-					// 404 (no backup) and transient failures both keep the letter fallback.
-					return null;
-				}
-			}),
-		)
-			.then((results) => results.filter((entry): entry is Candidate => entry !== null))
-			.finally(() => {
-				discoveryInFlight = null;
-			});
-		discoveryInFlight = pending;
-	}
-	return discoveryInFlight;
-}
+const selectionInFlight = new Map<Game, Promise<AvatarSelection | null>>();
 
-async function resolveSelection(request: RequestFn): Promise<AvatarSelection | null> {
-	const cached = readSelection();
+async function resolveSelection(
+	request: RequestFn,
+	game: Game,
+): Promise<AvatarSelection | null> {
+	const cached = readSelection(game);
 	if (cached && isFresh(cached.cachedAt)) {
 		return cached;
 	}
-	const selection = chooseSelection(await discoverCandidates(request));
-	if (!selection) {
-		removeKey(SELECTION_CACHE_KEY);
-		return null;
-	}
-	writeJson(SELECTION_CACHE_KEY, selection);
-	return selection;
+	const existing = selectionInFlight.get(game);
+	if (existing) return existing;
+	const pending = (async () => {
+		try {
+			const payload = await request<LatestBackupProfilesResponse>(
+				`${game}/v1/backups/latest/profiles`,
+			);
+			const selection = chooseSelection(game, payload);
+			if (!selection) {
+				removeKey(selectionCacheKey(game));
+				return null;
+			}
+			writeJson(selectionCacheKey(game), selection);
+			return selection;
+		} catch {
+			// 404 (no backup) and transient failures both keep the letter fallback.
+			return null;
+		}
+	})().finally(() => {
+		selectionInFlight.delete(game);
+	});
+	selectionInFlight.set(game, pending);
+	return pending;
 }
 
 async function fetchAvatarDataUrl(
@@ -252,8 +220,9 @@ async function fetchAvatarDataUrl(
 
 async function resolveProfileAvatar(
 	request: RequestFn,
+	game: Game,
 ): Promise<ProfileAvatarResult> {
-	const selection = await resolveSelection(request);
+	const selection = await resolveSelection(request, game);
 	if (!selection) return EMPTY_AVATAR;
 	const cachedImage = readImage(selection);
 	if (cachedImage && isFresh(cachedImage.cachedAt)) {
@@ -285,16 +254,20 @@ async function resolveProfileAvatar(
  * 60/hour rate limit. Prefers the raw avatar endpoint and falls back to the LXNS
  * `avatarUrl`; failures are silent and fall back to the account initial.
  */
-export function useProfileAvatar(request: RequestFn): ProfileAvatarResult {
-	const [avatar, setAvatar] = useState<ProfileAvatarResult>(
-		() => readCachedAvatar() ?? EMPTY_AVATAR,
+export function useProfileAvatar(
+	request: RequestFn,
+	game: Game,
+): ProfileAvatarResult {
+	const [state, setState] = useState<{ game: Game; avatar: ProfileAvatarResult }>(
+		() => ({ game, avatar: readCachedAvatar(game) ?? EMPTY_AVATAR }),
 	);
 
 	useEffect(() => {
+		setState({ game, avatar: readCachedAvatar(game) ?? EMPTY_AVATAR });
 		let cancelled = false;
-		void resolveProfileAvatar(request)
+		void resolveProfileAvatar(request, game)
 			.then((result) => {
-				if (!cancelled) setAvatar(result);
+				if (!cancelled) setState({ game, avatar: result });
 			})
 			.catch(() => {
 				// Silent: the account initial stays as the fallback.
@@ -302,8 +275,11 @@ export function useProfileAvatar(request: RequestFn): ProfileAvatarResult {
 		return () => {
 			cancelled = true;
 		};
-	}, [request]);
+	}, [request, game]);
 
-	return avatar;
+	if (state.game !== game) {
+		return readCachedAvatar(game) ?? EMPTY_AVATAR;
+	}
+	return state.avatar;
 }
 

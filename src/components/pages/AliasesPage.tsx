@@ -1,14 +1,8 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +31,6 @@ import type {
   CommunityCandidate,
 } from "@/lib/app-types";
 import { useTablePagination } from "@/lib/use-table-pagination";
-import { cn } from "@/lib/utils";
 import { ChevronRightIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -45,21 +38,11 @@ type AliasesPageProps = {
   isAdmin: boolean;
   communityDailyCount: number;
   communityRows: CommunityCandidate[];
-  communitySongName: string;
-  communitySongSuggestions: Array<{
-    songIdentifier: string;
-    title: string;
-    artist: string;
-  }>;
-  communityAliasText: string;
   adminStats: AdminDashboardStats | null;
   adminCandidates: AdminCandidate[];
   candidateVoteCloseDrafts: Record<string, string>;
   resolveSongTitle: (songIdentifier: string) => string;
   resolveSongCoverUrl: (songIdentifier: string) => string | null;
-  onCommunitySongNameChange: (value: string) => void;
-  onCommunityAliasTextChange: (value: string) => void;
-  onCommunitySubmit: () => void | Promise<void>;
   onCommunityVote: (candidateId: string, vote: -1 | 1) => void | Promise<void>;
   onLoadAdminCandidates: () => void | Promise<void>;
   onAdminRollCycle: () => void | Promise<void>;
@@ -107,17 +90,11 @@ export function AliasesPage({
   isAdmin,
   communityDailyCount,
   communityRows,
-  communitySongName,
-  communitySongSuggestions,
-  communityAliasText,
   adminStats,
   adminCandidates,
   candidateVoteCloseDrafts,
   resolveSongTitle,
   resolveSongCoverUrl,
-  onCommunitySongNameChange,
-  onCommunityAliasTextChange,
-  onCommunitySubmit,
   onCommunityVote,
   onLoadAdminCandidates,
   onAdminRollCycle,
@@ -129,11 +106,6 @@ export function AliasesPage({
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(
     null,
   );
-  const [songSuggestionOpen, setSongSuggestionOpen] = useState(false);
-  const [activeSongSuggestionIndex, setActiveSongSuggestionIndex] =
-    useState(-1);
-  const closeSuggestionTimerRef = useRef<number | null>(null);
-
   const selectedCandidate = useMemo(
     () =>
       communityRows.find((row) => row.candidateId === selectedCandidateId) ??
@@ -148,28 +120,6 @@ export function AliasesPage({
     ? adminCandidateById.get(selectedCandidate.candidateId)
     : undefined;
   const communityPagination = useTablePagination(communityRows);
-
-  useEffect(() => {
-    return () => {
-      if (closeSuggestionTimerRef.current !== null) {
-        window.clearTimeout(closeSuggestionTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (communitySongSuggestions.length === 0) {
-      setActiveSongSuggestionIndex(-1);
-      setSongSuggestionOpen(false);
-      return;
-    }
-    setActiveSongSuggestionIndex((previous) => {
-      if (previous >= 0 && previous < communitySongSuggestions.length) {
-        return previous;
-      }
-      return 0;
-    });
-  }, [communitySongSuggestions]);
 
   const handleOpenDetail = (row: CommunityCandidate) => {
     setSelectedCandidateId(row.candidateId);
@@ -191,12 +141,6 @@ export function AliasesPage({
     "-"
   );
 
-  const selectSongSuggestion = (title: string) => {
-    onCommunitySongNameChange(title);
-    setSongSuggestionOpen(false);
-    setActiveSongSuggestionIndex(-1);
-  };
-
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap gap-2">
@@ -214,154 +158,6 @@ export function AliasesPage({
           </Badge>
         ) : null}
       </div>
-
-      <Card size="sm">
-        <CardHeader>
-          <CardTitle>{t("sectionSubmit")}</CardTitle>
-          <CardDescription>{t("pageDesc")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <FieldGroup className="gap-3 md:flex-row md:items-end">
-            <Field className="relative min-w-0 flex-1">
-              <FieldLabel htmlFor="alias-song-name">
-                {t("labelSongName")}
-              </FieldLabel>
-              <Input
-                id="alias-song-name"
-                value={communitySongName}
-                onFocus={() => {
-                  if (closeSuggestionTimerRef.current !== null) {
-                    window.clearTimeout(closeSuggestionTimerRef.current);
-                    closeSuggestionTimerRef.current = null;
-                  }
-                  if (communitySongSuggestions.length > 0) {
-                    setSongSuggestionOpen(true);
-                  }
-                }}
-                onBlur={() => {
-                  closeSuggestionTimerRef.current = window.setTimeout(() => {
-                    setSongSuggestionOpen(false);
-                  }, 120);
-                }}
-                onChange={(event) => {
-                  onCommunitySongNameChange(event.target.value);
-                  setSongSuggestionOpen(true);
-                }}
-                onKeyDown={(event) => {
-                  if (communitySongSuggestions.length === 0) {
-                    return;
-                  }
-
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    setSongSuggestionOpen(true);
-                    setActiveSongSuggestionIndex((previous) => {
-                      if (previous < 0) {
-                        return 0;
-                      }
-                      return previous >= communitySongSuggestions.length - 1
-                        ? 0
-                        : previous + 1;
-                    });
-                    return;
-                  }
-
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault();
-                    setSongSuggestionOpen(true);
-                    setActiveSongSuggestionIndex((previous) => {
-                      if (previous < 0) {
-                        return communitySongSuggestions.length - 1;
-                      }
-                      return previous <= 0
-                        ? communitySongSuggestions.length - 1
-                        : previous - 1;
-                    });
-                    return;
-                  }
-
-                  if (
-                    event.key === "Enter" &&
-                    songSuggestionOpen &&
-                    activeSongSuggestionIndex >= 0
-                  ) {
-                    event.preventDefault();
-                    const suggestion =
-                      communitySongSuggestions[activeSongSuggestionIndex];
-                    if (suggestion) {
-                      selectSongSuggestion(suggestion.title);
-                    }
-                    return;
-                  }
-
-                  if (event.key === "Escape") {
-                    setSongSuggestionOpen(false);
-                  }
-                }}
-              />
-              {songSuggestionOpen && communitySongSuggestions.length > 0 ? (
-                <div className="absolute top-full z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-popover p-1 shadow-md ring-1 ring-foreground/10">
-                  {communitySongSuggestions.map((suggestion, index) => (
-                    <button
-                      key={suggestion.songIdentifier}
-                      type="button"
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left",
-                        index === activeSongSuggestionIndex
-                          ? "bg-accent text-accent-foreground"
-                          : "hover:bg-accent/60",
-                      )}
-                      onMouseEnter={() => setActiveSongSuggestionIndex(index)}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        selectSongSuggestion(suggestion.title);
-                      }}
-                    >
-                      <Avatar className="size-9 rounded-md">
-                        <AvatarImage
-                          src={
-                            resolveSongCoverUrl(suggestion.songIdentifier) ??
-                            undefined
-                          }
-                        />
-                        <AvatarFallback>
-                          {suggestion.title.slice(0, 1).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm">
-                          {suggestion.title}
-                        </span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {suggestion.artist || "-"}
-                        </span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </Field>
-            <Field className="min-w-0 flex-1">
-              <FieldLabel htmlFor="alias-text">
-                {t("labelAliasText")}
-              </FieldLabel>
-              <Input
-                id="alias-text"
-                value={communityAliasText}
-                onChange={(event) =>
-                  onCommunityAliasTextChange(event.target.value)
-                }
-              />
-            </Field>
-            <Button
-              className="w-full md:w-auto md:shrink-0"
-              onClick={() => void onCommunitySubmit()}
-            >
-              {t("btnSubmit")}
-            </Button>
-          </FieldGroup>
-        </CardContent>
-      </Card>
 
       {isAdmin ? (
         <Card size="sm">

@@ -23,10 +23,18 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { HandleText } from "@/components/ui/handle-text";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isValidUsername, normalizeUsername } from "@/lib/app-helpers";
 import { useProfileAvatar } from "@/hooks/use-profile-avatar";
+import { useBackupData } from "@/store/backup-data";
 import {
   CopyIcon,
   KeyRoundIcon,
@@ -36,9 +44,10 @@ import {
   SmartphoneIcon,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/ui/language-switcher";
-import type { RequestFn } from "@/App";
+import type { Game, RequestFn } from "@/App";
 import { useTranslation } from "react-i18next";
 import { OAuthAuthorizationsPage } from "./OAuthAuthorizationsPage";
+import type { AccountSection } from "@/lib/app-types";
 
 type MfaStatus = {
   mfaEnabled: boolean;
@@ -76,6 +85,8 @@ type SessionUser = {
 type SettingsPageProps = {
   sessionUser: SessionUser;
   request: RequestFn;
+  section: AccountSection;
+  game: Game;
   mfaStatus: MfaStatus | null;
   mfaSetup: MfaSetup | null;
   mfaSetupCode: string;
@@ -111,6 +122,44 @@ function formatDateTime(
   }).format(date);
 }
 
+/**
+ * Locale-formatted timestamp of the newest cloud backup. Anything unparsable is
+ * dropped so the card never renders `Invalid Date`.
+ */
+/** Region → flag, for the profile switcher. Unknown servers keep their text. */
+const SERVER_FLAGS: Record<string, string> = {
+  jp: "🇯🇵",
+  intl: "🌐",
+  cn: "🇨🇳",
+  usa: "🇺🇸",
+  kr: "🇰🇷",
+  asia: "🌏",
+};
+
+function serverFlag(server?: string | null): string | null {
+  const key = (server ?? "").trim().toLowerCase();
+  if (!key) return null;
+  return SERVER_FLAGS[key] ?? null;
+}
+
+/** `Shiko 🇯🇵` for known servers, `Shiko · jp` otherwise. */
+function profileLabel(name: string, server?: string | null): string {
+  const flag = serverFlag(server);
+  if (flag) return `${name} ${flag}`;
+  return server ? `${name} · ${server}` : name;
+}
+
+function formatBackupTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleString();
+}
+
 function summarizeCredentialId(credentialId: string) {
   if (credentialId.length <= 18) {
     return credentialId;
@@ -143,6 +192,8 @@ function sanitizeBackupCode(value: string) {
 export function SettingsPage({
   sessionUser,
   request,
+  section,
+  game,
   mfaStatus,
   mfaSetup,
   mfaSetupCode,
@@ -159,9 +210,27 @@ export function SettingsPage({
   onRegenerateBackupCodes,
 }: SettingsPageProps) {
   const { t } = useTranslation("settings");
-  const profileAvatar = useProfileAvatar(request);
+  const profileAvatar = useProfileAvatar(request, game);
   const profileAvatarSrc =
     profileAvatar.avatarDataUrl ?? profileAvatar.avatarUrl;
+  const {
+    status: backupStatus,
+    profiles: backupProfiles,
+    selectedProfileId,
+    selectedProfile,
+    selectProfile,
+    committedAt,
+  } = useBackupData();
+  const backupProfileMeta = [
+    selectedProfile?.playerRating != null
+      ? `Rating ${selectedProfile.playerRating}`
+      : null,
+    selectedProfile?.plate ?? null,
+    selectedProfile?.title ?? null,
+  ]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(" · ");
+  const backupTimestamp = formatBackupTimestamp(committedAt);
   const [totpQrDataUrl, setTotpQrDataUrl] = useState("");
   const [registeringPasskey, setRegisteringPasskey] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -292,14 +361,8 @@ export function SettingsPage({
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <Tabs defaultValue="overview" className="w-full gap-4">
-        <TabsList variant="line" className="w-full justify-start">
-          <TabsTrigger value="overview">{t("tabOverview")}</TabsTrigger>
-          <TabsTrigger value="security">{t("tabSecurity")}</TabsTrigger>
-          <TabsTrigger value="oauthApps">{t("tabOauthApps")}</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="flex flex-col gap-4">
+      {section === "overview" ? (
+        <>
           <Card size="sm">
             <CardContent className="flex flex-col gap-5">
               <div className="flex flex-wrap items-center gap-3">
@@ -332,6 +395,94 @@ export function SettingsPage({
               </div>
 
               <LanguageSwitcher />
+            </CardContent>
+          </Card>
+
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle className="text-sm">
+                {t("profileScopeTitle")}
+              </CardTitle>
+              <CardDescription>{t("profileScopeDesc")}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {selectedProfile ? (
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <p className="min-w-0 truncate text-sm font-medium">
+                          {selectedProfile.name}
+                          {serverFlag(selectedProfile.server) ? (
+                            <span
+                              className="ml-1.5"
+                              aria-label={selectedProfile.server ?? undefined}
+                            >
+                              {serverFlag(selectedProfile.server)}
+                            </span>
+                          ) : null}
+                        </p>
+                        {selectedProfile.active ? (
+                          <Badge variant="secondary" className="shrink-0">
+                            {t("backupProfileActive")}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {backupProfileMeta ? (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {backupProfileMeta}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+
+                {backupProfiles.length >= 2 ? (
+                  <Field className="w-full min-w-0 sm:w-56">
+                    <FieldLabel htmlFor="settings-profile-scope">
+                      {t("profileScopeSwitch")}
+                    </FieldLabel>
+                    <Select
+                      value={selectedProfileId ?? ""}
+                      onValueChange={selectProfile}
+                      disabled={backupStatus === "loading"}
+                    >
+                      <SelectTrigger
+                        id="settings-profile-scope"
+                        size="sm"
+                        className="w-full"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {backupProfiles.map((profile) => (
+                            <SelectItem key={profile.id} value={profile.id}>
+                              {profileLabel(profile.name, profile.server)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                ) : null}
+              </div>
+
+              {backupStatus === "loading" ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("profileScopeLoading")}
+                </p>
+              ) : null}
+              {backupStatus === "empty" ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("profileScopeEmpty")}
+                </p>
+              ) : null}
+              {backupTimestamp ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("profileScopeBackupAt", { time: backupTimestamp })}
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -389,9 +540,10 @@ export function SettingsPage({
               </FieldGroup>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="flex flex-col gap-4">
+        </>
+      ) : null}
+      {section === "security" ? (
+        <>
           <Card size="sm">
             <CardHeader>
               <CardTitle className="text-sm">{t("securityOverview")}</CardTitle>
@@ -673,12 +825,13 @@ export function SettingsPage({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="oauthApps" className="flex flex-col gap-4">
+        </>
+      ) : null}
+      {section === "oauthApps" ? (
+        <>
           <OAuthAuthorizationsPage request={request} />
-        </TabsContent>
-      </Tabs>
+        </>
+      ) : null}
 
       <Dialog
         open={renameDialogOpen}
